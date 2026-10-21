@@ -1,0 +1,57 @@
+# ==============================================================================
+# X-Finder AI Agent - Fichier d'exclusion Git (.gitignore)
+# Protection stricte des secrets, jetons d'accès, données privées et caches
+# ==============================================================================
+
+# Fichiers d'environnement & secrets
+.env
+.env.local
+.env.*.local
+*.env
+backend/.env
+
+# Google Workspace OAuth2 Tokens & Credentials (NE JAMAIS COMMITER)
+credentials.json
+token.json
+client_secrets.json
+service_account.json
+backend/credentials.json
+backend/token.json
+
+# Environnements virtuels Python
+venv/
+.venv/
+env/
+backend/venv/
+
+# Caches Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node.js & Frontend
+frontend/node_modules/
+frontend/.pnp
+frontend/.pnp.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Bases de données locales & fichiers uploadés
+chat.db
+*.db
+*.sqlite
+data/uploads/*
+!data/uploads/.gitkeep
+data/email_outbox.json
+
+# Fichiers OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
