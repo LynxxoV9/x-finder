@@ -252,18 +252,9 @@ def respond_to_confirmation(confirmation_id: int, req: ConfirmationResponse, db:
 # 4. Upload de fichier image pour reconnaissance multimodale OSINT
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """Permet de téléverser une image locale pour l'analyser avec X-Finder."""
-    upload_dir = Path(settings.UPLOAD_DIR)
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = int(datetime.utcnow().timestamp())
-    filename = f"{timestamp}_{file.filename}"
-    file_path = upload_dir / filename
-
+    """Retourne une image téléversée en mémoire, sans dépendre d'un disque persistant."""
+    filename = Path(file.filename or "upload").name
     content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-
     base64_data = base64.b64encode(content).decode("utf-8")
     content_type = file.content_type or "image/png"
     data_url = f"data:{content_type};base64,{base64_data}"
@@ -271,7 +262,7 @@ async def upload_file(file: UploadFile = File(...)):
     return {
         "status": "success",
         "filename": filename,
-        "path": str(file_path),
+        "path": None,
         "data_url": data_url
     }
 

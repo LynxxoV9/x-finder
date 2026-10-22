@@ -67,7 +67,7 @@ export async function respondConfirmation(confirmationId: number, confirmed: boo
   return res.json();
 }
 
-export async function uploadImageFile(file: File): Promise<{ filename: string; path: string; data_url: string }> {
+export async function uploadImageFile(file: File): Promise<{ filename: string; path: string | null; data_url: string }> {
   const formData = new FormData();
   formData.append('file', file);
   const res = await fetch(`${API_BASE}/upload`, {

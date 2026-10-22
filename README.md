@@ -254,6 +254,13 @@ Comme le backend FastAPI sert directement le bundle React précompilé sur son p
 3. Définissez la variable d'environnement `RODIUMAI_API_KEY` dans le tableau de bord.
 4. L'URL publique fournie (ex: `https://x-finder-agent.onrender.com`) est immédiatement prête à être remise à l'enseignant pour évaluation en direct.
 
+### Déploiement sur Vercel (GitHub + PostgreSQL) :
+1. Créez une base PostgreSQL persistante, par exemple sur Supabase, puis importez le dépôt `LynxxoV9/x-finder` dans Vercel en gardant la racine du dépôt comme répertoire du projet.
+2. Dans **Settings → Environment Variables**, ajoutez `DATABASE_URL` (URL PostgreSQL), `RODIUMAI_API_KEY` et les autres clés d'intégration nécessaires. Ne mettez aucun secret dans Git. SQLite reste réservé au développement local.
+3. Déployez. Vercel construit le frontend et l'API FastAPI ; avec GitHub connecté, chaque push sur la branche de production déclenche un nouveau déploiement. Les autres branches créent des prévisualisations.
+
+Les images téléversées par l'API sont traitées en mémoire ; aucun stockage de fichiers local n'est requis. Configurez les variables de base de données dans chaque environnement Vercel utilisé (Production, Preview et Development).
+
 ### Exposition publique instantanée via ngrok :
 Si vous hébergez temporairement depuis votre machine :
 ```bash

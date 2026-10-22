@@ -1,12 +1,23 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from app.config import settings
 from app.database.models import Base
 
-# Configuration du moteur SQLite ou distant
+database_url = settings.DATABASE_URL
+if database_url.startswith("postgres://"):
+    database_url = "postgresql+psycopg://" + database_url.removeprefix("postgres://")
+elif database_url.startswith("postgresql://"):
+    database_url = "postgresql+psycopg://" + database_url.removeprefix("postgresql://")
+
+if os.getenv("VERCEL") and database_url.startswith("sqlite:"):
+    raise RuntimeError(
+        "Vercel requires a persistent PostgreSQL database. Set DATABASE_URL in the project environment."
+    )
+
 engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
+    database_url,
+    connect_args={"check_same_thread": False} if database_url.startswith("sqlite:") else {}
 )
 
 # Sessionmaker pour la gestion des transactions
