@@ -15,9 +15,13 @@ if os.getenv("VERCEL") and database_url.startswith("sqlite:"):
         "Vercel requires a persistent PostgreSQL database. Set DATABASE_URL in the project environment."
     )
 
+connect_args = {"check_same_thread": False} if database_url.startswith("sqlite:") else {}
+if database_url.startswith("postgresql+psycopg://"):
+    connect_args["prepare_threshold"] = None
+
 engine = create_engine(
     database_url,
-    connect_args={"check_same_thread": False} if database_url.startswith("sqlite:") else {}
+    connect_args=connect_args,
 )
 
 # Sessionmaker pour la gestion des transactions
