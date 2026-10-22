@@ -52,7 +52,7 @@ def search_web(query: str, search_depth: str = "basic", max_results: int = 5, in
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
-        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+        with httpx.Client(timeout=4.0, follow_redirects=True) as client:
             res = client.post(url, data={"q": query}, headers=headers)
             if res.status_code == 200:
                 from bs4 import BeautifulSoup

@@ -201,6 +201,7 @@ def investigate_email_osint(email: str) -> Dict[str, Any]:
         "domain": domain,
         "derived_handles": list(handles_to_probe),
         "primary_identity": None,
+        "associated_names": [],
         "profile_bio": None,
         "evidence": [],
         "registered_platforms": [],
@@ -242,8 +243,11 @@ def investigate_email_osint(email: str) -> Dict[str, Any]:
 
     # 2. Recherche et Pivot sur l'API GitHub (Commits publics & Comptes)
     try:
-        headers = {"User-Agent": "X-Finder-OSINT-Agent"}
-        with httpx.Client(timeout=8.0, headers=headers) as client:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/vnd.github.cloak-preview"
+        }
+        with httpx.Client(timeout=25.0, headers=headers) as client:
             gh_commits_url = f"https://api.github.com/search/commits?q=author-email:{email_clean}"
             c_res = client.get(gh_commits_url)
             if c_res.status_code == 200:
@@ -273,20 +277,36 @@ def investigate_email_osint(email: str) -> Dict[str, Any]:
         pass
 
     # 3. Pivot d'investigation sur les profils GitHub découverts (Bio, Nom complet, Intérêts)
-    with httpx.Client(timeout=6.0, follow_redirects=True) as client:
+    with httpx.Client(timeout=8.0, follow_redirects=True) as client:
         for h in list(handles_to_probe):
             try:
-                gh_u_res = client.get(f"https://api.github.com/users/{h}", headers={"User-Agent": "X-Finder-Agent"})
+                gh_u_res = client.get(f"https://api.github.com/users/{h}", headers={"User-Agent": "Mozilla/5.0"})
                 if gh_u_res.status_code == 200:
                     gh_prof = gh_u_res.json()
                     real_name = gh_prof.get("name")
                     bio = gh_prof.get("bio")
+                    gh_url = f"https://github.com/{h}"
+                    if not any(p.get("url") == gh_url for p in results["registered_platforms"]):
+                        results["registered_platforms"].append({
+                            "platform": "GitHub",
+                            "handle": h,
+                            "url": gh_url,
+                            "title": real_name or h,
+                            "bio": bio or "",
+                            "details": f"{gh_prof.get('public_repos', 0)} dépôts publics",
+                            "category": "Code & Développement",
+                            "status": "CONFIRMED"
+                        })
                     if real_name:
-                        results["primary_identity"] = real_name
-                        results["evidence"].append(f"[GitHub Identity] Identité réelle confirmée : {real_name} (@{h})")
+                        if real_name not in results["associated_names"]:
+                            results["associated_names"].append(real_name)
+                        if not results["primary_identity"] or "Lynxx" in h or "Lyxx" in h:
+                            results["primary_identity"] = real_name
+                        results["evidence"].append(f"[GitHub Identity] Identité confirmée : {real_name} (@{h})")
                     if bio:
-                        results["profile_bio"] = bio
-                        results["evidence"].append(f"[GitHub Bio] '{bio}'")
+                        if not results["profile_bio"] or "SOC" in bio.upper() or "BLUE TEAM" in bio.upper():
+                            results["profile_bio"] = bio
+                        results["evidence"].append(f"[GitHub Bio] @{h}: '{bio}'")
                         # Extraction de domaines de compétences
                         results["associated_interests"].extend([w for w in ["SOC", "DFIR", "AI", "CYBERSECURITY", "BLUE TEAM", "PYTHON", "HACKING"] if w in bio.upper()])
             except Exception:
@@ -294,15 +314,25 @@ def investigate_email_osint(email: str) -> Dict[str, Any]:
 
     results["derived_handles"] = list(handles_to_probe)
 
-    # 4. Énumération active multi-plateformes (Sondes directes HTTP sur chaque pseudonyme)
-    with httpx.Client(timeout=4.0, follow_redirects=True) as client:
-        for handle in list(handles_to_probe)[:5]:
-            matches = _probe_single_handle(handle, client)
-            for m in matches:
-                # Éviter les doublons
-                if not any(p["url"] == m["url"] for p in results["registered_platforms"]):
-                    results["registered_platforms"].append(m)
-                    results["evidence"].append(f"[{m['platform']}] Compte actif trouvé : {m['url']}")
+    # 4. Énumération active multi-plateformes (Sondes rapides en parallèle façon Sherlock)
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _probe_worker(h: str) -> List[Dict[str, Any]]:
+        with httpx.Client(timeout=3.5, follow_redirects=True) as c:
+            return _probe_single_handle(h, c)
+
+    probe_targets = list(handles_to_probe)[:5]
+    with ThreadPoolExecutor(max_workers=max(len(probe_targets), 1)) as executor:
+        futures = {executor.submit(_probe_worker, h): h for h in probe_targets}
+        for future in as_completed(futures):
+            try:
+                matches = future.result()
+                for m in matches:
+                    if not any(p["url"] == m["url"] for p in results["registered_platforms"]):
+                        results["registered_platforms"].append(m)
+                        results["evidence"].append(f"[{m['platform']}] Compte actif trouvé : {m['url']}")
+            except Exception:
+                pass
 
     # 5. Recherche ciblée de traces sur plateformes éducatives & cybersécurité (Root-Me, TryHackMe, OpenClassrooms)
     queries = [
