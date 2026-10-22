@@ -30,5 +30,13 @@
     "location": "",
     "start": "2026-10-25T10:00:00Z",
     "end": "2026-10-25T11:00:00+00:00"
+  },
+  {
+    "id": "evt_1792698230",
+    "summary": "Test Meeting Agent",
+    "description": "Test unitaire X-Finder",
+    "location": "",
+    "start": "2026-10-25T10:00:00Z",
+    "end": "2026-10-25T11:00:00+00:00"
   }
 ]

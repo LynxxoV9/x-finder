@@ -11,17 +11,29 @@ from app.tools.calendar_tool import list_events, search_events, create_event
 from app.tools.email_tool import prepare_email_draft
 from app.tools.notion_tool import search_notion, read_notion_page
 from app.tools.drive_tool import search_drive_files, read_drive_file_content
-from app.tools.osint_tools import recon_social_profile, cti_threat_lookup, hunt_opportunities
+from app.tools.osint_tools import (
+    recon_social_profile,
+    investigate_person_osint,
+    cti_threat_lookup,
+    hunt_opportunities,
+)
 from app.tools.rag_engine import query_local_knowledge
-from app.tools.email_osint import investigate_email_osint, harvest_domain_intel, generate_osint_graph
+from app.tools.email_osint import (
+    investigate_email_osint,
+    investigate_username_osint,
+    harvest_domain_intel,
+    generate_osint_graph,
+)
+from app.tools.email_tool import smtp_status, send_email_confirmed
 
 # Test 1 : Recherche Web (avec repli DuckDuckGo)
 def test_search_web():
     res = search_web("cybersécurité intelligence artificielle 2026", max_results=3)
-    assert res["status"] in ["success", "warning"]
+    assert res["status"] in ["success", "no_results"]
     assert "results" in res
-    assert len(res["results"]) > 0
     assert "sources" in res
+    if res["status"] == "success":
+        assert len(res["results"]) > 0
 
 # Test 2 : Météo (avec repli Open-Meteo sans clé)
 def test_weather_single_and_multi():
@@ -87,12 +99,29 @@ def test_drive_search_and_read():
 # Test 7 : Reconnaissance OSINT & CTI
 def test_osint_tools():
     threat = cti_threat_lookup("CVE-2024-3094")
-    assert threat["status"] == "success"
+    assert threat["status"] in ["success", "no_results"]
     assert "findings_count" in threat
 
     opps = hunt_opportunities(opportunity_type="ctf", domain="cyber", location="Remote")
-    assert opps["status"] == "success"
+    assert opps["status"] in ["success", "no_results"]
     assert "opportunities" in opps
+
+    person = investigate_person_osint("Elon Musk")
+    assert person["status"] in ["success", "no_results"]
+    assert "findings" in person
+    if person["status"] == "success":
+        assert person["findings_count"] > 0
+
+    user = investigate_username_osint("torvalds")
+    assert user["status"] in ["success", "no_results"]
+    assert "registered_platforms" in user
+
+    recon = recon_social_profile("github", "torvalds")
+    assert recon["status"] in ["success", "no_results"]
+    assert recon.get("confirmed") is True or recon["status"] == "no_results"
+    # Pas d'invention de compétences par défaut
+    if recon["status"] == "no_results":
+        assert recon["extracted_skills"] == []
 
 # Test 8 : RAG Local
 def test_rag_query():
@@ -127,3 +156,18 @@ def test_osint_graph_generation():
     assert res["status"] == "success"
     assert "flowchart TD" in res["mermaid_chart"]
     assert "nodes_summary" in res
+    # Pas d'emojis / stickers dans le graphe
+    assert "🎯" not in res["mermaid_chart"]
+    assert "👤" not in res["mermaid_chart"]
+
+
+def test_smtp_status_and_sandbox_send():
+    status = smtp_status()
+    assert "configured" in status
+    assert status.get("user") == "lynxxoven@gmail.com"
+    assert status.get("from_email") == "lynxxoven@gmail.com"
+    # Sans mot de passe : pas de faux succès silencieux
+    if not status["configured"]:
+        sent = send_email_confirmed("flowoliv@gmail.com", "Test", "Corps test")
+        assert sent["status"] == "warning"
+        assert sent["mode"] == "sandbox_simulation"

@@ -6,10 +6,20 @@ from app.tools.calendar_tool import list_events, search_events, create_event, de
 from app.tools.email_tool import prepare_email_draft, send_email_confirmed
 from app.tools.notion_tool import search_notion, read_notion_page, create_notion_page, append_to_notion_page
 from app.tools.drive_tool import search_drive_files, read_drive_file_content
-from app.tools.osint_tools import recon_social_profile, cti_threat_lookup, hunt_opportunities
+from app.tools.osint_tools import (
+    recon_social_profile,
+    investigate_person_osint,
+    cti_threat_lookup,
+    hunt_opportunities,
+)
 from app.tools.vision_recon import analyze_image_intel
 from app.tools.rag_engine import query_local_knowledge
-from app.tools.email_osint import investigate_email_osint, harvest_domain_intel, generate_osint_graph
+from app.tools.email_osint import (
+    investigate_email_osint,
+    investigate_username_osint,
+    harvest_domain_intel,
+    generate_osint_graph,
+)
 
 # Définition des schémas des outils au standard OpenAI / RodiumAI
 TOOL_DEFINITIONS = [
@@ -18,7 +28,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "search_web",
-            "description": "Recherche des informations actualisées, des actualités ou des sources sur Internet (Tavily).",
+            "description": "Recherche web temps réel (Tavily si clé valide, sinon DuckDuckGo). Retourne titres, URLs et extraits réels uniquement.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -116,13 +126,13 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "prepare_email_draft",
-            "description": "Prépare un brouillon d'email et le présente à l'utilisateur pour validation AVANT envoi (sécurité obligatoire).",
+            "description": "Prépare un brouillon d'email (ex: envoyer un rapport OSINT/météo à flowoliv@gmail.com) pour validation AVANT envoi. Corps = faits issus des outils uniquement.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "to_email": {"type": "string", "description": "Adresse email du destinataire"},
+                    "to_email": {"type": "string", "description": "Adresse email du destinataire (ex: flowoliv@gmail.com)"},
                     "subject": {"type": "string", "description": "Objet de l'email"},
-                    "body": {"type": "string", "description": "Contenu complet rédigé du message"}
+                    "body": {"type": "string", "description": "Contenu complet : rapport synthétique avec sources/URLs réelles"}
                 },
                 "required": ["to_email", "subject", "body"]
             }
@@ -132,7 +142,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "send_email_confirmed",
-            "description": "Exécute l'expédition SMTP effective de l'email après que l'utilisateur a confirmé le brouillon.",
+            "description": "Expédition SMTP réelle après confirmation explicite. Échoue clairement si SMTP_PASSWORD absent (pas de faux succès silencieux).",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -239,14 +249,43 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "recon_social_profile",
-            "description": "Reconnaissance OSINT sur un profil ou identifiant public (LinkedIn, YouTube, GitHub).",
+            "description": "Reconnaissance OSINT sur un identifiant public pour une plateforme donnée. Ne confirme un profil que s'il y a des preuves web.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "platform": {"type": "string", "description": "Plateforme visée (ex: 'linkedin', 'youtube', 'github')"},
+                    "platform": {"type": "string", "description": "Plateforme (linkedin, github, twitter, instagram, facebook, youtube, auto, ...)"},
                     "identifier": {"type": "string", "description": "Nom d'utilisateur, URL ou pseudonyme"}
                 },
                 "required": ["platform", "identifier"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "investigate_person_osint",
+            "description": "OSINT sur un NOM COMPLET (civil/public), tous secteurs. Pas pour un email. Retourne sources web, emails/handles éventuels sans invention.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "full_name": {"type": "string", "description": "Nom et prénom(s) de la cible"},
+                    "location_hint": {"type": "string", "description": "Indice géographique optionnel (ex: Togo, Lomé, France)"}
+                },
+                "required": ["full_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "investigate_username_osint",
+            "description": "OSINT sur un PSEUDONYME/HANDLE : sondage multi-plateformes (social, jeux, musique, code...) + traces web. Pas limité au milieu tech.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "username": {"type": "string", "description": "Pseudonyme sans @ (ex: flowoliv, Lynxxov9)"}
+                },
+                "required": ["username"]
             }
         }
     },
@@ -382,14 +421,51 @@ FUNCTION_MAP: Dict[str, Callable] = {
     "search_drive_files": search_drive_files,
     "read_drive_file_content": read_drive_file_content,
     "recon_social_profile": recon_social_profile,
+    "investigate_person_osint": investigate_person_osint,
+    "investigate_username_osint": investigate_username_osint,
     "cti_threat_lookup": cti_threat_lookup,
     "hunt_opportunities": hunt_opportunities,
     "analyze_image_intel": analyze_image_intel,
     "query_local_knowledge": query_local_knowledge,
     "investigate_email_osint": investigate_email_osint,
     "harvest_domain_intel": harvest_domain_intel,
-    "generate_osint_graph": generate_osint_graph
+    "generate_osint_graph": generate_osint_graph,
 }
+
+def _attach_grounding(tool_name: str, result: Dict[str, Any]) -> Dict[str, Any]:
+    """Annotate tool output so the LLM cannot treat weak/ambiguous hits as hard facts."""
+    if not isinstance(result, dict):
+        return {"status": "error", "message": "Résultat d'outil invalide."}
+
+    out = dict(result)
+    out["_grounding"] = {
+        "tool": tool_name,
+        "rule": (
+            "N'affirme un fait que s'il apparaît explicitement dans ce JSON. "
+            "Sources reliability=low (Facebook/forums) = indices seulement. "
+            "Si le champ demandé est absent : répondre « Non confirmé »."
+        ),
+    }
+
+    if tool_name == "search_web" and isinstance(out.get("results"), list):
+        hard = [r for r in out["results"] if r.get("use_as_hard_fact") or r.get("reliability") == "high"]
+        weak = [r for r in out["results"] if r.get("reliability") == "low"]
+        out["hard_fact_candidates"] = [
+            {"title": r.get("title"), "url": r.get("url"), "content": r.get("content")}
+            for r in hard
+        ]
+        out["weak_sources_do_not_assert_from_alone"] = [
+            {"title": r.get("title"), "url": r.get("url")}
+            for r in weak
+        ]
+        if not hard and out.get("results"):
+            out["grounding_advice"] = (
+                "Aucune source high-reliability. Ne confirme pas de faits biographiques "
+                "sensibles ; dis « Non confirmé » ou cite prudemment avec URLs."
+            )
+
+    return out
+
 
 def execute_tool_call(tool_name: str, arguments_json: str) -> Dict[str, Any]:
     """Exécute un appel d'outil de manière sécurisée en analysant ses arguments JSON."""
@@ -404,6 +480,8 @@ def execute_tool_call(tool_name: str, arguments_json: str) -> Dict[str, Any]:
 
     try:
         result = func(**kwargs)
-        return result
+        if isinstance(result, dict):
+            return _attach_grounding(tool_name, result)
+        return {"status": "success", "data": result}
     except Exception as e:
         return {"status": "error", "message": f"Erreur lors de l'exécution de '{tool_name}' : {str(e)}"}

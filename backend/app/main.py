@@ -17,8 +17,9 @@ from app.database.db import get_db, init_db
 from app.database.models import Conversation, Message, ToolExecution, PendingConfirmation
 from app.agent.core import run_agent_turn
 from app.agent.registry import TOOL_DEFINITIONS, FUNCTION_MAP
-from app.tools.email_tool import send_email_confirmed
+from app.tools.email_tool import send_email_confirmed, smtp_status
 from app.tools.calendar_tool import delete_event
+from app.tools.web_search import _is_usable_tavily_key
 
 # Initialisation de la base de données
 init_db()
@@ -201,7 +202,7 @@ def respond_to_confirmation(confirmation_id: int, req: ConfirmationResponse, db:
         msg = Message(
             conversation_id=conf.conversation_id,
             role="assistant",
-            content=f"❌ Action '{conf.action_type}' annulée à votre demande."
+            content=f"Action '{conf.action_type}' annulée à votre demande."
         )
         db.add(msg)
         db.commit()
@@ -220,18 +221,21 @@ def respond_to_confirmation(confirmation_id: int, req: ConfirmationResponse, db:
     else:
         action_result = {"status": "success", "message": f"Action {conf.action_type} exécutée."}
 
-    conf.status = "confirmed"
-    
-    # Message d'information système de confirmation dans l'historique
+    conf.status = "confirmed" if action_result.get("status") in ("success", "warning") else "failed"
+
+    result_status = action_result.get("status", "success")
+    prefix = "Action exécutée" if result_status == "success" else (
+        "Action traitée avec avertissement" if result_status == "warning" else "Échec de l'action"
+    )
     msg = Message(
         conversation_id=conf.conversation_id,
         role="assistant",
-        content=f"✅ **Action validée et exécutée :**\n{action_result.get('message', 'Opération réussie.')}"
+        content=f"**{prefix} :**\n{action_result.get('message', 'Opération terminée.')}",
     )
     db.add(msg)
     db.commit()
 
-    return {"status": "confirmed", "result": action_result}
+    return {"status": conf.status, "result": action_result}
 
 
 # 4. Upload de fichier image pour reconnaissance multimodale OSINT
@@ -283,13 +287,18 @@ def list_available_tools():
 @app.get("/api/health")
 def health_check():
     """Vérifie le bon fonctionnement du serveur et des intégrations."""
+    smtp = smtp_status()
     return {
         "status": "healthy",
         "agent_name": "X-Finder",
         "llm_provider": "RodiumAI",
         "default_model": settings.DEFAULT_MODEL,
-        "available_models": settings.ALLOWED_MODELS.split(","),
-        "timestamp": datetime.utcnow().isoformat()
+        "available_models": [m.strip() for m in settings.ALLOWED_MODELS.split(",") if m.strip()],
+        "integrations": {
+            "tavily": _is_usable_tavily_key(settings.TAVILY_API_KEY),
+            "smtp": smtp,
+        },
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 

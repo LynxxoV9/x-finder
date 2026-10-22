@@ -5,7 +5,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.agent.prompts import SYSTEM_PROMPT
+from app.agent.prompts import SYSTEM_PROMPT, TOOL_GROUNDING_REMINDER
 from app.agent.registry import TOOL_DEFINITIONS, execute_tool_call
 from app.database.models import Message, ToolExecution, PendingConfirmation
 
@@ -100,7 +100,7 @@ async def run_agent_turn(
             "messages": llm_messages,
             "tools": TOOL_DEFINITIONS,
             "tool_choice": "auto",
-            "temperature": 0.3
+            "temperature": 0
         }
 
         # Appel au fournisseur LLM (RodiumAI / OpenAI compatible)
@@ -161,13 +161,15 @@ async def run_agent_turn(
                 elapsed_ms = int((time.time() - start_time) * 1000)
 
                 output_str = json.dumps(tool_output, ensure_ascii=False)
+                # Contenu LLM = résultat + rappel anti-extrapolation (ne change pas le log brut)
+                llm_tool_content = output_str + "\n\n" + TOOL_GROUNDING_REMINDER
 
                 # Journalisation en base de données pour évaluation et audit
                 exec_log = ToolExecution(
                     conversation_id=conversation_id,
                     tool_name=tool_name,
                     input_arguments=tool_args,
-                    output_result=output_str[:3000], # Tronqué si très long
+                    output_result=output_str[:3000],
                     status="success" if tool_output.get("status") != "error" else "error",
                     execution_time_ms=elapsed_ms
                 )
@@ -208,7 +210,7 @@ async def run_agent_turn(
                     "role": "tool",
                     "tool_call_id": call_id,
                     "name": tool_name,
-                    "content": output_str
+                    "content": llm_tool_content
                 })
 
                 executed_tools_summary.append({
