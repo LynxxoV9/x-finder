@@ -54,6 +54,15 @@ class NewConversationRequest(BaseModel):
     model: Optional[str] = None
 
 
+def _load_json(value: Optional[str], fallback: Any = None) -> Any:
+    if value is None:
+        return fallback
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return fallback
+
+
 # 1. Routes de gestion des conversations
 @app.post("/api/conversations")
 def create_conversation(req: NewConversationRequest, db: Session = Depends(get_db)):
@@ -110,7 +119,7 @@ def get_conversation_details(conversation_id: int, db: Session = Depends(get_db)
                     "id": m.id,
                     "role": m.role,
                     "content": m.content,
-                    "tool_calls": json.loads(m.tool_calls) if m.tool_calls else None,
+                    "tool_calls": _load_json(m.tool_calls),
                     "tool_call_id": m.tool_call_id,
                     "name": m.name,
                     "image_url": m.image_url,
@@ -122,8 +131,8 @@ def get_conversation_details(conversation_id: int, db: Session = Depends(get_db)
                 {
                     "id": t.id,
                     "tool_name": t.tool_name,
-                    "arguments": json.loads(t.input_arguments) if t.input_arguments else {},
-                    "output": json.loads(t.output_result) if t.output_result and t.output_result.startswith("{") else t.output_result,
+                    "arguments": _load_json(t.input_arguments, t.input_arguments or {}),
+                    "output": _load_json(t.output_result, t.output_result),
                     "status": t.status,
                     "execution_time_ms": t.execution_time_ms
                 }
@@ -134,7 +143,7 @@ def get_conversation_details(conversation_id: int, db: Session = Depends(get_db)
                     "id": p.id,
                     "action_type": p.action_type,
                     "description": p.description,
-                    "payload": json.loads(p.payload) if p.payload else {}
+                    "payload": _load_json(p.payload, p.payload or {})
                 }
                 for p in pending
             ]
@@ -193,7 +202,9 @@ def respond_to_confirmation(confirmation_id: int, req: ConfirmationResponse, db:
     if conf.status != "pending":
         return {"status": "already_processed", "message": f"Action déjà traitée ({conf.status})."}
 
-    payload = json.loads(conf.payload) if conf.payload else {}
+    payload = _load_json(conf.payload, {})
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=500, detail="La demande de confirmation contient des données invalides.")
 
     if not req.confirmed:
         conf.status = "rejected"

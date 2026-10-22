@@ -50,7 +50,10 @@ export async function sendChatMessage(
       image_base64: imageBase64,
     }),
   });
-  if (!res.ok) throw new Error('Erreur lors de la réponse de l’agent');
+  if (!res.ok) {
+    const error = await res.json().catch(() => null);
+    throw new Error(error?.detail || `Erreur lors de la réponse de l’agent (${res.status})`);
+  }
   return res.json();
 }
 

@@ -42,6 +42,23 @@ export const App: React.FC = () => {
   const t = translations[lang];
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const lastAssistantMessage = [...(activeDetails?.messages || [])]
+    .reverse()
+    .find((msg) => msg.role === 'assistant' && !!msg.content);
+
+  const confidenceMeta = (() => {
+    const content = lastAssistantMessage?.content || '';
+    const lower = content.toLowerCase();
+
+    if (lower.includes('non confirmé') || lower.includes('non confirme')) return { label: 'Non confirmé', color: '#f59e0b' };
+    if (lower.includes('confiance : faible') || lower.includes('faible')) return { label: 'Faible', color: '#f97316' };
+    if (lower.includes('confiance : moyenne') || lower.includes('moyenne')) return { label: 'Moyenne', color: '#facc15' };
+    if (lower.includes('confiance : élevée') || lower.includes('elevee') || lower.includes('élevée')) return { label: 'Élevée', color: '#22c55e' };
+    return { label: 'Non signalé', color: '#64748b' };
+  })();
+
+  const graphDetected = (lastAssistantMessage?.content || '').includes('```mermaid');
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -129,7 +146,18 @@ export const App: React.FC = () => {
         await loadConversations();
       }
     } catch (e) {
-      console.error(e);
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setActiveDetails((current) => ({
+        id: current?.id || activeId || 0,
+        title: current?.title || 'X-Finder Mission Hub',
+        model: current?.model || selectedModel,
+        messages: [
+          ...(current?.messages || []),
+          { role: 'assistant', content: `${t.request_error}: ${errorMessage}` },
+        ],
+        executed_tools: current?.executed_tools || [],
+        pending_confirmations: current?.pending_confirmations || [],
+      }));
     } finally {
       setIsLoading(false);
     }
@@ -266,6 +294,28 @@ export const App: React.FC = () => {
 
             <div ref={messagesEndRef} />
           </div>
+
+          {lastAssistantMessage && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              margin: '0 12px 12px',
+              padding: '8px 12px',
+              border: '1px solid rgba(148, 163, 184, 0.2)',
+              borderRadius: '10px',
+              background: 'rgba(15, 23, 42, 0.7)',
+              color: '#e2e8f0',
+              fontSize: '0.8rem',
+            }}>
+              <span>
+                Niveau de confiance : <strong style={{ color: confidenceMeta.color }}>{confidenceMeta.label}</strong>
+              </span>
+              <span style={{ opacity: 0.8 }}>
+                {graphDetected ? 'Graphe Mermaid détecté' : 'Aucun graphe détecté'}
+              </span>
+            </div>
+          )}
 
           <ChatInput onSend={handleSendMessage} isLoading={isLoading} lang={lang} />
         </main>

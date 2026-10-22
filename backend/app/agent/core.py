@@ -1,6 +1,7 @@
+import asyncio
 import json
 import time
-from typing import Dict, Any, List, Optional, AsyncGenerator
+from typing import Dict, Any, List, Optional
 import httpx
 from sqlalchemy.orm import Session
 
@@ -85,6 +86,8 @@ async def run_agent_turn(
     executed_tools_summary = []
     pending_conf_obj = None
     final_text_content = ""
+    final_status = "success"
+    assistant_response_saved = False
 
     headers = {
         "Authorization": f"Bearer {settings.RODIUMAI_API_KEY}",
@@ -92,36 +95,55 @@ async def run_agent_turn(
     }
 
     loop_count = 0
-    while loop_count < MAX_AGENT_LOOPS:
-        loop_count += 1
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        while loop_count < MAX_AGENT_LOOPS:
+            loop_count += 1
 
-        payload = {
-            "model": selected_model,
-            "messages": llm_messages,
-            "tools": TOOL_DEFINITIONS,
-            "tool_choice": "auto",
-            "temperature": 0
-        }
+            payload = {
+                "model": selected_model,
+                "messages": llm_messages,
+                "tools": TOOL_DEFINITIONS,
+                "tool_choice": "auto",
+                "temperature": 0
+            }
 
-        # Appel au fournisseur LLM (RodiumAI / OpenAI compatible)
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            res = await client.post(f"{settings.BASE_URL}/chat/completions", headers=headers, json=payload)
-            if res.status_code != 200:
-                error_msg = f"Erreur du service LLM ({res.status_code}) : {res.text[:200]}"
-                final_text_content = error_msg
+            try:
+                res = await client.post(
+                    f"{settings.BASE_URL}/chat/completions",
+                    headers=headers,
+                    json=payload
+                )
+            except httpx.TimeoutException:
+                final_text_content = "Le service LLM n'a pas répondu dans le délai imparti. Réessayez dans quelques instants."
+                final_status = "error"
+                break
+            except httpx.HTTPError as exc:
+                final_text_content = f"Impossible de contacter le service LLM : {exc}"
+                final_status = "error"
                 break
 
-            response_data = res.json()
-            choice = response_data.get("choices", [{}])[0]
-            message_obj = choice.get("message", {})
+            if res.status_code != 200:
+                final_text_content = f"Erreur du service LLM ({res.status_code}) : {res.text[:200]}"
+                final_status = "error"
+                break
+
+            try:
+                response_data = res.json()
+                choice = response_data["choices"][0]
+                message_obj = choice["message"]
+            except (ValueError, KeyError, IndexError, TypeError):
+                final_text_content = "Le service LLM a renvoyé une réponse invalide."
+                final_status = "error"
+                break
 
             content = message_obj.get("content")
             tool_calls = message_obj.get("tool_calls")
 
-            # Cas A : Le modèle n'a pas appelé d'outils supplémentaires et termine sa réponse
             if not tool_calls:
-                final_text_content = content or ""
-                # Sauvegarde du message assistant final en base
+                final_text_content = content if isinstance(content, str) else ""
+                if not final_text_content:
+                    final_text_content = "Le modèle n'a fourni aucune réponse."
+                    final_status = "error"
                 assistant_msg_db = Message(
                     conversation_id=conversation_id,
                     role="assistant",
@@ -129,53 +151,47 @@ async def run_agent_turn(
                 )
                 db.add(assistant_msg_db)
                 db.commit()
+                assistant_response_saved = True
                 break
 
-            # Cas B : Le modèle a sélectionné un ou plusieurs outils à exécuter
-            # Enregistrement du message assistant intermédiaire avec tool_calls
             assistant_mid_db = Message(
                 conversation_id=conversation_id,
                 role="assistant",
-                content=content,
+                content=content if isinstance(content, str) else None,
                 tool_calls=json.dumps(tool_calls)
             )
             db.add(assistant_mid_db)
             db.commit()
 
-            # Ajout à l'historique en mémoire pour la prochaine itération
             llm_messages.append({
                 "role": "assistant",
                 "content": content,
                 "tool_calls": tool_calls
             })
 
-            # Exécution de chaque outil
             for tc in tool_calls:
                 func_info = tc.get("function", {})
                 call_id = tc.get("id")
                 tool_name = func_info.get("name")
                 tool_args = func_info.get("arguments", "{}")
 
-                start_time = time.time()
-                tool_output = execute_tool_call(tool_name, tool_args)
-                elapsed_ms = int((time.time() - start_time) * 1000)
+                start_time = time.monotonic()
+                tool_output = await asyncio.to_thread(execute_tool_call, tool_name, tool_args)
+                elapsed_ms = int((time.monotonic() - start_time) * 1000)
 
                 output_str = json.dumps(tool_output, ensure_ascii=False)
-                # Contenu LLM = résultat + rappel anti-extrapolation (ne change pas le log brut)
                 llm_tool_content = output_str + "\n\n" + TOOL_GROUNDING_REMINDER
 
-                # Journalisation en base de données pour évaluation et audit
                 exec_log = ToolExecution(
                     conversation_id=conversation_id,
                     tool_name=tool_name,
                     input_arguments=tool_args,
-                    output_result=output_str[:3000],
+                    output_result=output_str,
                     status="success" if tool_output.get("status") != "error" else "error",
                     execution_time_ms=elapsed_ms
                 )
                 db.add(exec_log)
 
-                # Si l'action nécessite une confirmation explicite (ex: envoi d'email, suppression)
                 if tool_output.get("requires_confirmation"):
                     conf = PendingConfirmation(
                         conversation_id=conversation_id,
@@ -194,7 +210,6 @@ async def run_agent_turn(
                         "payload": json.loads(conf.payload) if conf.payload else {}
                     }
 
-                # Enregistrement de la réponse d'outil dans la table messages
                 tool_msg_db = Message(
                     conversation_id=conversation_id,
                     role="tool",
@@ -205,7 +220,6 @@ async def run_agent_turn(
                 db.add(tool_msg_db)
                 db.commit()
 
-                # Ajout dans les messages transmis au LLM
                 llm_messages.append({
                     "role": "tool",
                     "tool_call_id": call_id,
@@ -220,8 +234,20 @@ async def run_agent_turn(
                     "execution_time_ms": elapsed_ms
                 })
 
+    if not assistant_response_saved:
+        if final_status == "success" and loop_count >= MAX_AGENT_LOOPS:
+            final_text_content = "La limite d'étapes de l'agent a été atteinte avant la réponse finale."
+            final_status = "incomplete"
+        assistant_msg_db = Message(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=final_text_content
+        )
+        db.add(assistant_msg_db)
+        db.commit()
+
     return {
-        "status": "success",
+        "status": final_status,
         "conversation_id": conversation_id,
         "model": selected_model,
         "response": final_text_content,
