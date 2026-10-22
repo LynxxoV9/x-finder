@@ -355,7 +355,9 @@ TOOL_DEFINITIONS = [
                     "domain": {"type": "string", "description": "Le nom de domaine"},
                     "associated_names": {"type": "array", "items": {"type": "string"}, "description": "Noms réels découverts"},
                     "discovered_accounts": {"type": "array", "items": {"type": "object"}, "description": "Plateformes découvertes"},
-                    "related_emails": {"type": "array", "items": {"type": "string"}, "description": "Emails reliés dans la même organisation"}
+                    "related_emails": {"type": "array", "items": {"type": "string"}, "description": "Emails reliés dans la même organisation"},
+                    "repositories": {"type": "array", "items": {"type": "string"}, "description": "Dépôts ou projets publics découverts"},
+                    "skills_or_bio": {"type": "string", "description": "Biographie ou compétences extraites"}
                 },
                 "required": ["target_email"]
             }
