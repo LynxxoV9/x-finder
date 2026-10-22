@@ -1,16 +1,19 @@
 import React, { useRef, useState } from 'react';
-import { Send, Image, X, Sparkles } from 'lucide-react';
+import { Send, Image, X } from 'lucide-react';
+import { Language, translations } from '../i18n/translations';
 
 interface ChatInputProps {
   onSend: (message: string, imageBase64?: string) => void;
   isLoading: boolean;
+  lang?: Language;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading, lang = 'fr' }) => {
   const [text, setText] = useState('');
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const t = translations[lang];
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -51,7 +54,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading }) => {
         {imageBase64 && (
           <div className="image-attachment-chip">
             <Image size={14} />
-            <span>{imageName || 'Image jointe'}</span>
+            <span>{imageName || t.image_attached}</span>
             <button
               onClick={clearImage}
               style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer' }}
@@ -63,7 +66,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading }) => {
 
         <textarea
           className="chat-textarea"
-          placeholder="Attribuez une mission à X-Finder... (ex: Recherche les failles CVE récentes, planifie ma réunion, consulte Notion)"
+          placeholder={t.input_placeholder}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -84,10 +87,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading }) => {
               type="button"
               className="media-btn"
               onClick={() => fileInputRef.current?.click()}
-              title="Joindre une image pour analyse visuelle OSINT"
+              title={t.media_btn}
             >
               <Image size={16} />
-              <span>Image / Média</span>
+              <span>{t.media_btn}</span>
             </button>
           </div>
 
@@ -105,7 +108,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading }) => {
               </span>
             ) : (
               <>
-                <span>Exécuter</span>
+                <span>{t.send_btn}</span>
                 <Send size={15} />
               </>
             )}

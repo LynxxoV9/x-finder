@@ -1,0 +1,18 @@
+[
+  {
+    "id": "evt_demo_01",
+    "summary": "R\u00e9union Strat\u00e9gique OSINT & IA",
+    "description": "Point d'\u00e9tape sur le projet X-Finder et architecture agentique.",
+    "start": "2026-10-22T10:00:00Z",
+    "end": "2026-10-22T11:30:00Z",
+    "location": "Visioconf\u00e9rence Google Meet"
+  },
+  {
+    "id": "evt_demo_02",
+    "summary": "Atelier Cybers\u00e9curit\u00e9 & CTF",
+    "description": "Pr\u00e9paration du CTF universitaire et veille CTI.",
+    "start": "2026-10-22T14:00:00Z",
+    "end": "2026-10-22T16:00:00Z",
+    "location": "Salle R\u00e9seau 402"
+  }
+]

@@ -5,6 +5,7 @@ import {
   ConfirmationCard,
   ChatInput,
   ToolsModal,
+  AmbientLightBackground,
 } from './components';
 import {
   fetchConversations,
@@ -14,8 +15,9 @@ import {
   sendChatMessage,
   respondConfirmation,
 } from './api/client';
-import { ConversationSummary, ConversationDetails, MessageItem, PendingConfirmationItem } from './types';
-import { Shield, Sparkles, Terminal, Globe, CloudSun, Calendar, Mail, FileText, Folder } from 'lucide-react';
+import { ConversationSummary, ConversationDetails, MessageItem } from './types';
+import { Language, translations } from './i18n/translations';
+import { Shield } from 'lucide-react';
 import './App.css';
 
 export const App: React.FC = () => {
@@ -26,9 +28,20 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isToolsModalOpen, setIsToolsModalOpen] = useState<boolean>(false);
 
+  // État bilingue Français / Anglais
+  const [lang, setLang] = useState<Language>(() => {
+    return (localStorage.getItem('xfinder_lang') as Language) || 'fr';
+  });
+
+  const toggleLang = () => {
+    const nextLang = lang === 'fr' ? 'en' : 'fr';
+    setLang(nextLang);
+    localStorage.setItem('xfinder_lang', nextLang);
+  };
+
+  const t = translations[lang];
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Défilement automatique vers le bas
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -37,7 +50,6 @@ export const App: React.FC = () => {
     scrollToBottom();
   }, [activeDetails?.messages, isLoading]);
 
-  // Chargement initial des conversations
   useEffect(() => {
     loadConversations();
   }, []);
@@ -67,7 +79,8 @@ export const App: React.FC = () => {
 
   const handleNewConversation = async () => {
     try {
-      const newConv = await createNewConversation("Nouvelle Mission", selectedModel);
+      const title = lang === 'fr' ? 'Nouvelle Mission' : 'New Mission';
+      const newConv = await createNewConversation(title, selectedModel);
       await loadConversations();
       selectConversation(newConv.id);
     } catch (e) {
@@ -96,7 +109,6 @@ export const App: React.FC = () => {
   const handleSendMessage = async (text: string, imageBase64?: string) => {
     setIsLoading(true);
 
-    // Optimistic UI update for user message
     const tempUserMsg: MessageItem = {
       role: 'user',
       content: text,
@@ -137,132 +149,130 @@ export const App: React.FC = () => {
     }
   };
 
-  // Missions rapides d'introduction
   const quickPrompts = [
     {
-      title: '⚡ Défi Multi-Outils (Complet)',
-      desc: 'Calendrier, Notion, Actualités IA & préparation de brouillon d’email.',
-      prompt: 'Consulte mon Google Calendar pour demain, retrouve dans Notion mes notes sur le Machine Learning, recherche les actualités sur les agents IA et prépare un email pour professeur@universite.fr résumant ces éléments.',
+      title: t.quick_multitool_title,
+      desc: t.quick_multitool_desc,
+      prompt: t.quick_multitool_prompt,
     },
     {
-      title: '🛡️ Veille CTI & Menaces',
-      desc: 'Analyse d’une vulnérabilité critique et bulletin d’alerte.',
-      prompt: 'Effectue une analyse CTI de la vulnérabilité CVE-2024-3094 : vecteurs d’attaque, score de gravité et mesures de mitigation.',
+      title: t.quick_cti_title,
+      desc: t.quick_cti_desc,
+      prompt: t.quick_cti_prompt,
     },
     {
-      title: '🎯 Chasse aux Opportunités',
-      desc: 'Détection de stages, hackathons et CTFs en Cybersécurité.',
-      prompt: 'Chasse les opportunités de stages et les compétitions CTF à venir en cybersécurité pour les profils étudiants passionnés.',
+      title: t.quick_hunter_title,
+      desc: t.quick_hunter_desc,
+      prompt: t.quick_hunter_prompt,
     },
     {
-      title: '🌤️ Météo Comparée',
-      desc: 'Comparaison météo multi-villes et prévisions.',
-      prompt: 'Compare la météo actuelle et les prévisions entre Lomé et Accra.',
+      title: t.quick_weather_title,
+      desc: t.quick_weather_desc,
+      prompt: t.quick_weather_prompt,
     },
   ];
 
   return (
-    <div className="app-container">
-      {/* Sidebar navigation */}
-      <Sidebar
-        conversations={conversations}
-        activeId={activeId}
-        onSelect={selectConversation}
-        onNew={handleNewConversation}
-        onDelete={handleDeleteConversation}
-        selectedModel={selectedModel}
-        onModelChange={setSelectedModel}
-        onOpenToolsModal={() => setIsToolsModalOpen(true)}
-      />
+    <>
+      {/* 1. Lumière ambiante en arrière-plan avec mouvement et variation d'intensité 3D */}
+      <AmbientLightBackground />
 
-      {/* Main Chat HUD */}
-      <main className="main-chat">
-        {/* Header */}
-        <header className="chat-header">
-          <div className="header-info">
-            <h2>
-              <span className="header-status-dot" />
-              <span>{activeDetails?.title || 'X-Finder Mission Hub'}</span>
-            </h2>
-          </div>
-          <div className="header-meta">
-            <span>Région : Automatique | Multi-outils Activé</span>
-          </div>
-        </header>
+      {/* 2. Interface utilisateur principale */}
+      <div className="app-container">
+        {/* Barre latérale */}
+        <Sidebar
+          conversations={conversations}
+          activeId={activeId}
+          onSelect={selectConversation}
+          onNew={handleNewConversation}
+          onDelete={handleDeleteConversation}
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+          onOpenToolsModal={() => setIsToolsModalOpen(true)}
+          lang={lang}
+          onToggleLang={toggleLang}
+        />
 
-        {/* Message timeline */}
-        <div className="messages-container">
-          {(!activeDetails || activeDetails.messages.length === 0) ? (
-            <div className="empty-hud">
-              <Shield className="empty-logo" />
-              <h1>X-Finder Intelligence Agent</h1>
-              <p>
-                Agent IA autonome avec <strong>Tool Calling</strong> dynamique. Spécialiste de la
-                reconnaissance OSINT, de la Threat Intelligence (CTI) et de l'interconnexion d'outils
-                (Tavily Web, Météo, Google Calendar, Notion, Google Drive, SMTP & RAG local).
-              </p>
+        {/* Espace de discussion principal */}
+        <main className="main-chat">
+          <header className="chat-header">
+            <div className="header-info">
+              <h2>
+                <span className="header-status-dot" />
+                <span>{activeDetails?.title || 'X-Finder Mission Hub'}</span>
+              </h2>
+            </div>
+            <div className="header-meta">
+              <span>{t.online_region}</span>
+            </div>
+          </header>
 
-              <div className="quick-prompts-grid">
-                {quickPrompts.map((qp, idx) => (
-                  <div
-                    key={idx}
-                    className="quick-prompt-card"
-                    onClick={() => handleSendMessage(qp.prompt)}
-                  >
-                    <div className="quick-prompt-title">{qp.title}</div>
-                    <div className="quick-prompt-desc">{qp.desc}</div>
-                  </div>
+          <div className="messages-container">
+            {(!activeDetails || activeDetails.messages.length === 0) ? (
+              <div className="empty-hud">
+                <Shield className="empty-logo" />
+                <h1>{t.empty_title}</h1>
+                <p>{t.empty_desc}</p>
+
+                <div className="quick-prompts-grid">
+                  {quickPrompts.map((qp, idx) => (
+                    <div
+                      key={idx}
+                      className="quick-prompt-card"
+                      onClick={() => handleSendMessage(qp.prompt)}
+                    >
+                      <div className="quick-prompt-title">{qp.title}</div>
+                      <div className="quick-prompt-desc">{qp.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                {activeDetails.messages.map((msg, index) => {
+                  const toolsForMsg =
+                    msg.role === 'assistant'
+                      ? activeDetails.executed_tools.slice(index > 0 ? index - 1 : 0, index + 2)
+                      : [];
+                  return <MessageItemView key={msg.id || index} message={msg} tools={toolsForMsg} />;
+                })}
+
+                {activeDetails.pending_confirmations?.map((conf) => (
+                  <ConfirmationCard
+                    key={conf.id}
+                    confirmation={conf}
+                    onRespond={handleRespondConfirmation}
+                    isLoading={isLoading}
+                    lang={lang}
+                  />
                 ))}
+              </>
+            )}
+
+            {isLoading && (
+              <div className="message-row assistant">
+                <div className="assistant-bubble" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ color: '#00f2fe', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                    {t.agent_thinking}
+                  </span>
+                  <span className="typing-indicator">
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                  </span>
+                </div>
               </div>
-            </div>
-          ) : (
-            <>
-              {activeDetails.messages.map((msg, index) => {
-                // Associer les outils exécutés
-                const toolsForMsg =
-                  msg.role === 'assistant'
-                    ? activeDetails.executed_tools.slice(index > 0 ? index - 1 : 0, index + 2)
-                    : [];
-                return <MessageItemView key={msg.id || index} message={msg} tools={toolsForMsg} />;
-              })}
+            )}
 
-              {/* Confirmations en attente (Sécurité humaine dans la boucle) */}
-              {activeDetails.pending_confirmations?.map((conf) => (
-                <ConfirmationCard
-                  key={conf.id}
-                  confirmation={conf}
-                  onRespond={handleRespondConfirmation}
-                  isLoading={isLoading}
-                />
-              ))}
-            </>
-          )}
+            <div ref={messagesEndRef} />
+          </div>
 
-          {isLoading && (
-            <div className="message-row assistant">
-              <div className="assistant-bubble" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#00f2fe', fontFamily: 'monospace', fontSize: '0.82rem' }}>
-                  X-Finder analyse la requête et sélectionne les outils...
-                </span>
-                <span className="typing-indicator">
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </span>
-              </div>
-            </div>
-          )}
+          <ChatInput onSend={handleSendMessage} isLoading={isLoading} lang={lang} />
+        </main>
 
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Chat input form */}
-        <ChatInput onSend={handleSendMessage} isLoading={isLoading} />
-      </main>
-
-      {/* Tools Modal */}
-      <ToolsModal isOpen={isToolsModalOpen} onClose={() => setIsToolsModalOpen(false)} />
-    </div>
+        <ToolsModal isOpen={isToolsModalOpen} onClose={() => setIsToolsModalOpen(false)} lang={lang} />
+      </div>
+    </>
   );
 };
 export default App;

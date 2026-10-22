@@ -1,0 +1,5 @@
+Proposition de Projet : Agent Personnel X-Finder
+Auteur : Kokou Olivier FIABI (lynxxoven)
+Objectif : Agent autonome de nouvelle génération combinant le tool calling avec des capacités avancées de reconnaissance OSINT, de veille CTI et de détection d'opportunités (stages, CTF, hackathons).
+Architecture : FastAPI asynchrone, intégration RodiumAI, stockage SQLite et sécurité renforcée.
+Budget temps : 2 semaines pour validation complète et déploiement public.

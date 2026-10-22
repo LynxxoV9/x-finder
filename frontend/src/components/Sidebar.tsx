@@ -1,6 +1,7 @@
 import React from 'react';
-import { Shield, Plus, Trash2, Cpu, Wrench } from 'lucide-react';
+import { Shield, Plus, Trash2, Wrench, Languages } from 'lucide-react';
 import { ConversationSummary } from '../types';
+import { Language, translations } from '../i18n/translations';
 
 interface SidebarProps {
   conversations: ConversationSummary[];
@@ -11,6 +12,8 @@ interface SidebarProps {
   selectedModel: string;
   onModelChange: (model: string) => void;
   onOpenToolsModal: () => void;
+  lang: Language;
+  onToggleLang: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -22,7 +25,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedModel,
   onModelChange,
   onOpenToolsModal,
+  lang,
+  onToggleLang,
 }) => {
+  const t = translations[lang];
+
   return (
     <aside className="sidebar">
       {/* Brand Header */}
@@ -31,13 +38,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Shield className="brand-icon" size={22} />
           <span>X-FINDER</span>
         </div>
-        <span className="brand-tag">AGENT v1.0</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            className="lang-toggle-btn"
+            onClick={onToggleLang}
+            title={t.lang_toggle}
+          >
+            <Languages size={13} />
+            <span>{lang.toUpperCase()}</span>
+          </button>
+          <span className="brand-tag">{t.brand_sub}</span>
+        </div>
       </div>
 
       {/* New Mission Button */}
       <button className="new-mission-btn" onClick={onNew}>
         <Plus size={16} />
-        <span>Nouvelle Mission</span>
+        <span>{t.new_mission}</span>
       </button>
 
       {/* Conversation History */}
@@ -53,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
             <button
               className="conv-del-btn"
-              title="Supprimer"
+              title={t.delete_conv_title}
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(c.id);
@@ -68,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar Footer: Model and Tools */}
       <div className="sidebar-footer">
         <div className="model-selector">
-          <label className="model-label">Modèle LLM (RodiumAI)</label>
+          <label className="model-label">{t.model_label}</label>
           <select
             className="model-select"
             value={selectedModel}
@@ -83,9 +100,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="tools-status-badge" onClick={onOpenToolsModal}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Wrench size={14} style={{ color: '#00f2fe' }} />
-            <span>18 Outils Connectés</span>
+            <span>18 {t.tools_connected}</span>
           </div>
-          <span style={{ color: '#00e676', fontSize: '0.72rem', fontWeight: 600 }}>ACTIFS</span>
+          <span style={{ color: '#00e676', fontSize: '0.72rem', fontWeight: 600 }}>{t.active_status}</span>
         </div>
       </div>
     </aside>

@@ -1,0 +1,31 @@
+[
+  {
+    "id": "notion_page_01",
+    "title": "Notes sur le Machine Learning",
+    "content": "Rappel des fondamentaux : Gradient Descent, Transformers, Attention Mechanism.\nDiff\u00e9rence entre Fine-tuning et In-Context Learning.\nLes agents autonomes exploitent le Tool Calling pour combler le manque de donn\u00e9es temps r\u00e9el.",
+    "tags": [
+      "Machine Learning",
+      "IA",
+      "Cours"
+    ]
+  },
+  {
+    "id": "notion_page_02",
+    "title": "Compte rendu de la derni\u00e8re r\u00e9union",
+    "content": "Ordre du jour : Conception de l'agent X-Finder.\nD\u00e9cisions prises :\n1. Sp\u00e9cialisation OSINT & CTI pour la veille de menaces.\n2. Int\u00e9gration de la recherche multimodale (image + texte).\n3. D\u00e9ploiement s\u00e9curis\u00e9 avec validation explicite des actions sensibles (emails, suppressions).",
+    "tags": [
+      "R\u00e9union",
+      "Projet",
+      "X-Finder"
+    ]
+  },
+  {
+    "id": "notion_page_03",
+    "title": "Recherches sur les agents IA",
+    "content": "\u00c9tude comparative : ReAct (Reasoning + Acting), LangGraph, PydanticAI.\nImportance du tool calling dynamique et de la gestion des \u00e9tats.",
+    "tags": [
+      "Recherche",
+      "Agents"
+    ]
+  }
+]
