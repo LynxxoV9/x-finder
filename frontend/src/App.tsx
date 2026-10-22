@@ -156,6 +156,11 @@ export const App: React.FC = () => {
       prompt: t.quick_multitool_prompt,
     },
     {
+      title: t.quick_email_osint_title,
+      desc: t.quick_email_osint_desc,
+      prompt: t.quick_email_osint_prompt,
+    },
+    {
       title: t.quick_cti_title,
       desc: t.quick_cti_desc,
       prompt: t.quick_cti_prompt,
@@ -164,11 +169,6 @@ export const App: React.FC = () => {
       title: t.quick_hunter_title,
       desc: t.quick_hunter_desc,
       prompt: t.quick_hunter_prompt,
-    },
-    {
-      title: t.quick_weather_title,
-      desc: t.quick_weather_desc,
-      prompt: t.quick_weather_prompt,
     },
   ];
 

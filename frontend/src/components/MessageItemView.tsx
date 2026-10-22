@@ -14,8 +14,11 @@ import {
   ChevronDown,
   ChevronRight,
   Terminal,
+  Network,
+  Search,
 } from 'lucide-react';
 import { MessageItem, ToolExecutionRecord } from '../types';
+import { MermaidChart } from './MermaidChart';
 
 interface MessageItemViewProps {
   message: MessageItem;
@@ -56,7 +59,23 @@ export const MessageItemView: React.FC<MessageItemViewProps> = ({ message, tools
 
           {/* Corps de la réponse markdown */}
           <div className="assistant-bubble">
-            <ReactMarkdown>{message.content}</ReactMarkdown>
+            <ReactMarkdown
+              components={{
+                code({ node, inline, className, children, ...props }: any) {
+                  const match = /language-(\w+)/.exec(className || '');
+                  if (!inline && match && match[1] === 'mermaid') {
+                    return <MermaidChart chart={String(children).replace(/\n$/, '')} />;
+                  }
+                  return (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
           </div>
         </div>
       </div>
@@ -102,6 +121,12 @@ const ToolBadge: React.FC<{ tool: ToolExecutionRecord }> = ({ tool }) => {
         return <Eye size={14} className="tool-icon" />;
       case 'query_local_knowledge':
         return <BookOpen size={14} className="tool-icon" />;
+      case 'investigate_email_osint':
+        return <Search size={14} className="tool-icon" />;
+      case 'harvest_domain_intel':
+        return <Network size={14} className="tool-icon" />;
+      case 'generate_osint_graph':
+        return <Network size={14} className="tool-icon" style={{ color: '#00f2fe' }} />;
       default:
         return <Terminal size={14} className="tool-icon" />;
     }

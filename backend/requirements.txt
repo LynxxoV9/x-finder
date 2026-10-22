@@ -12,3 +12,4 @@ google-auth-oauthlib>=1.2.0
 pillow>=10.2.0
 beautifulsoup4>=4.12.3
 pytest>=8.1.1
+dnspython>=2.6.0

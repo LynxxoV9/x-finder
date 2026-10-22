@@ -9,6 +9,7 @@ from app.tools.drive_tool import search_drive_files, read_drive_file_content
 from app.tools.osint_tools import recon_social_profile, cti_threat_lookup, hunt_opportunities
 from app.tools.vision_recon import analyze_image_intel
 from app.tools.rag_engine import query_local_knowledge
+from app.tools.email_osint import investigate_email_osint, harvest_domain_intel, generate_osint_graph
 
 # Définition des schémas des outils au standard OpenAI / RodiumAI
 TOOL_DEFINITIONS = [
@@ -309,6 +310,56 @@ TOOL_DEFINITIONS = [
                 "required": ["query"]
             }
         }
+    },
+    # 10. Investigation OSINT Avancée sur Email (Style Holehe / Footprint)
+    {
+        "type": "function",
+        "function": {
+            "name": "investigate_email_osint",
+            "description": "Investigation OSINT approfondie sur une adresse email : détection de profil Gravatar, traces GitHub, commits, présences de comptes et indices de confiance avec preuves.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "email": {"type": "string", "description": "Adresse email cible à investiguer (ex: 'user@domain.com')"}
+                },
+                "required": ["email"]
+            }
+        }
+    },
+    # 11. Récolte theHarvester sur un nom de domaine
+    {
+        "type": "function",
+        "function": {
+            "name": "harvest_domain_intel",
+            "description": "Récolte OSINT façon theHarvester sur un domaine : DNS (MX, SPF, DMARC), sous-domaines (crt.sh) et adresses emails associées à l'organisation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "domain": {"type": "string", "description": "Nom de domaine cible (ex: 'gouv.tg' ou 'entreprise.com')"},
+                    "max_emails": {"type": "integer", "default": 15}
+                },
+                "required": ["domain"]
+            }
+        }
+    },
+    # 12. Génération d'organigramme / Graphe relationnel Maltego
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_osint_graph",
+            "description": "Génère un diagramme Mermaid d'organigramme relationnel reliant l'email cible à son domaine, ses comptes et ses emails collaborateurs (style Maltego).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_email": {"type": "string", "description": "L'email cible"},
+                    "domain": {"type": "string", "description": "Le nom de domaine"},
+                    "associated_names": {"type": "array", "items": {"type": "string"}, "description": "Noms réels découverts"},
+                    "discovered_accounts": {"type": "array", "items": {"type": "object"}, "description": "Plateformes découvertes"},
+                    "related_emails": {"type": "array", "items": {"type": "string"}, "description": "Emails reliés dans la même organisation"}
+                },
+                "required": ["target_email"]
+            }
+        }
     }
 ]
 
@@ -332,7 +383,10 @@ FUNCTION_MAP: Dict[str, Callable] = {
     "cti_threat_lookup": cti_threat_lookup,
     "hunt_opportunities": hunt_opportunities,
     "analyze_image_intel": analyze_image_intel,
-    "query_local_knowledge": query_local_knowledge
+    "query_local_knowledge": query_local_knowledge,
+    "investigate_email_osint": investigate_email_osint,
+    "harvest_domain_intel": harvest_domain_intel,
+    "generate_osint_graph": generate_osint_graph
 }
 
 def execute_tool_call(tool_name: str, arguments_json: str) -> Dict[str, Any]:

@@ -13,6 +13,7 @@ from app.tools.notion_tool import search_notion, read_notion_page
 from app.tools.drive_tool import search_drive_files, read_drive_file_content
 from app.tools.osint_tools import recon_social_profile, cti_threat_lookup, hunt_opportunities
 from app.tools.rag_engine import query_local_knowledge
+from app.tools.email_osint import investigate_email_osint, harvest_domain_intel, generate_osint_graph
 
 # Test 1 : Recherche Web (avec repli DuckDuckGo)
 def test_search_web():
@@ -98,3 +99,31 @@ def test_rag_query():
     rag_res = query_local_knowledge("MITRE ATT&CK IOC")
     assert rag_res["status"] == "success"
     assert rag_res["matches_count"] > 0
+
+# Test 9 : Investigation OSINT Email (Holehe-style)
+def test_email_osint_investigation():
+    res = investigate_email_osint("contact@github.com")
+    assert res["status"] == "success"
+    assert res["target_email"] == "contact@github.com"
+    assert "evidence" in res
+    assert "confidence_score" in res
+
+# Test 10 : Récolte de Domaine theHarvester-style
+def test_domain_harvester():
+    res = harvest_domain_intel("github.com", max_emails=5)
+    assert res["status"] == "success"
+    assert res["domain"] == "github.com"
+    assert isinstance(res["discovered_emails"], list)
+
+# Test 11 : Organigramme relationnel Maltego / Mermaid
+def test_osint_graph_generation():
+    res = generate_osint_graph(
+        target_email="contact@github.com",
+        domain="github.com",
+        associated_names=["GitHub Support"],
+        discovered_accounts=[{"platform": "GitHub", "username": "github"}],
+        related_emails=["support@github.com"]
+    )
+    assert res["status"] == "success"
+    assert "flowchart TD" in res["mermaid_chart"]
+    assert "nodes_summary" in res
