@@ -316,7 +316,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "investigate_email_osint",
-            "description": "Investigation OSINT approfondie sur une adresse email : détection de profil Gravatar, traces GitHub, commits, présences de comptes et indices de confiance avec preuves.",
+            "description": "À utiliser STRICTEMENT et UNIQUEMENT lorsqu'une adresse email valide (format user@domain.tld ou user.name@domain.sousdomain) est fournie. NE PAS UTILISER pour des noms de personnes. Investigation OSINT approfondie sur une adresse email : détection de profil Gravatar, traces GitHub, commits, présences de comptes et indices de confiance avec preuves.",
             "parameters": {
                 "type": "object",
                 "properties": {

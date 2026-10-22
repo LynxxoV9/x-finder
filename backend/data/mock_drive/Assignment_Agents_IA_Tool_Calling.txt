@@ -1,0 +1,4 @@
+Cahier des charges de l'Assignment :
+- Outils requis : Recherche Internet (Tavily), Météo, Google Calendar, Envoi Email (SMTP), Google Drive et Notion.
+- Exigence clé : L'agent doit choisir dynamiquement ses outils et combiner plusieurs outils dans un même workflow (défi final).
+- Sécurité : Les suppressions et envois d'emails doivent être confirmés par l'utilisateur.
