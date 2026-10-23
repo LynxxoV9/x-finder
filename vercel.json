@@ -1,4 +1,3 @@
 {
-  "buildCommand": "npm --prefix frontend ci && npm --prefix frontend run build",
-  "outputDirectory": "frontend/dist"
+  "buildCommand": "npm --prefix frontend ci && npm --prefix frontend run build"
 }
