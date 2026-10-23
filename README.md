@@ -1,4 +1,6 @@
-# 🛡️ X-Finder : Agent IA Personnel Autonome avec Tool Calling
+# 🛡️ X-Finder : Agent IA Personnel Autonome avec Tool Calling (RodiumAi Bootcamp - Module 6)
+
+> 🚀 **Application déployée : [Ouvrir X-Finder](https://x-finder-chi.vercel.app/)**
 
 > **Assignment de cours** : Développer un agent IA personnel capable d'utiliser des outils externes pour effectuer des tâches concrètes à la demande de l'utilisateur.  
 > **Spécialité X-Finder** : OSINT (Open Source Intelligence), Cyber Threat Intelligence (CTI), Détection d'Opportunités (Stages, Emplois, Hackathons, CTF) & Recherche Multimodale (Texte + Image).  
@@ -8,22 +10,22 @@
 
 ---
 
-## 📑 Table des Matières
-1. [Vue d'ensemble et Spécialisation](#-vue-densemble-et-spécialisation)
-2. [Matrice d'Évaluation (Conformité 100 % du Barème)](#-matrice-dévaluation-du-projet)
-3. [Architecture Technique](#-architecture-technique)
-4. [Inventaire des Outils Connectés](#-inventaire-des-outils-connectés)
-5. [Installation et Lancement Rapide](#-installation-et-lancement-rapide)
-   - [Lancement sous Linux / macOS](#lancement-sous-linux--macos)
-   - [Lancement sous Windows](#lancement-sous-windows)
-   - [Lancement Manuel / Développeur](#lancement-manuel)
-6. [Guide de Test et Évaluation pour l'Enseignant](#-guide-de-test-pour-lenseignant)
-7. [Sécurité et Gestion des Données Sensibles](#-sécurité-et-gestion-des-données-sensibles)
-8. [Déploiement en Ligne (Lien Public)](#-modalités-de-soumission-et-déploiement-en-ligne)
+## Aperçu de l'application
+
+Les captures d'écran seront ajoutées ici.
+
+### Interface principale
+<!-- Ajouter ici une capture de l'interface principale. -->
+
+### Investigation et résultats
+<!-- Ajouter ici une capture d'une investigation et de ses résultats. -->
+
+### Graphe relationnel
+<!-- Ajouter ici une capture d'un graphe généré par l'agent. -->
 
 ---
 
-## 🎯 Vue d'ensemble et Spécialisation
+## Vue d'ensemble et Spécialisation
 
 Contrairement aux chatbots conversationnels traditionnels qui se limitent à générer du texte, **X-Finder** est un **agent autonome d'action**. Il implémente le patron architectural de **Tool Calling dynamique** :
 
@@ -37,26 +39,7 @@ Contrairement aux chatbots conversationnels traditionnels qui se limitent à gé
 
 ---
 
-## 📊 Matrice d'Évaluation du Projet
-
-Le projet a été développé en stricte adéquation avec les critères d'évaluation du sujet :
-
-| Critère d'Évaluation | Poids | Implémentation dans X-Finder | Outils & Fichiers Clés |
-|---|:---:|---|---|
-| **Interface de chat et déploiement** | **10 %** | Interface Web moderne HUD Cyber (React + Vite), responsive, historique de sessions, sélecteur de modèle LLM, et distribution tout-en-un via FastAPI. | `frontend/src/App.tsx`, `run.py` |
-| **Sélection dynamique des outils & agent** | **15 %** | Boucle autonome d'agent multi-tours (`MAX_AGENT_LOOPS = 8`), dispatching d'arguments JSON et gestion d'erreurs sans crash. | `backend/app/agent/core.py`, `registry.py` |
-| **Recherche Internet et actualités** | **10 %** | API Tavily Search officielle avec extraction d'actualités récentes et citations de liens sources. Repli DuckDuckGo automatique si clé absente. | `backend/app/tools/web_search.py` |
-| **Intégration météo** | **5 %** | Météo actuelle, prévisions sur plusieurs jours et comparaison multi-villes (ex: Lomé vs Accra). Repli Open-Meteo gratuit sans clé. | `backend/app/tools/weather.py` |
-| **Intégration Google Calendar** | **15 %** | Consultation des événements à venir, recherche par date/mot-clé, création, mise à jour et suppression (avec confirmation). | `backend/app/tools/calendar_tool.py` |
-| **Intégration email (SMTP)** | **10 %** | Rédaction en langage naturel, vérification des champs requis, présentation du brouillon et **confirmation utilisateur obligatoire** avant envoi SMTP. | `backend/app/tools/email_tool.py` |
-| **Intégration Notion** | **15 %** | Recherche de pages/notes, lecture de blocs, création de page et ajout de contenu (`append`). | `backend/app/tools/notion_tool.py` |
-| **Intégration Google Drive** | **10 %** | Recherche de fichiers par titre ou contenu, lecture de Google Docs et fichiers texte, synthèse documentaire. | `backend/app/tools/drive_tool.py` |
-| **Sécurité, fiabilité & robustesse** | **10 %** | `.env` strictement protégé et ignoré, variables d'environnement, validation des entrées Pydantic, gestion des exceptions réseau. | `app/config.py`, `.gitignore` |
-| **Total** | **100 %** | **Toutes les fonctionnalités obligatoires + super-pouvoirs OSINT / CTI / Hunter + Multimodal + RAG** | |
-
----
-
-## 🏗️ Architecture Technique
+## Architecture Technique
 
 ```
 x_finder/
@@ -109,7 +92,7 @@ x_finder/
 
 ---
 
-## 🛠️ Inventaire des Outils Connectés
+## Inventaire des Outils Connectés
 
 1. `search_web` : Recherche en direct sur Internet et actualités via Tavily Search API (avec URLs sources).
 2. `get_weather` : Météo actuelle, prévisions et comparateur multi-villes.
@@ -133,7 +116,7 @@ x_finder/
 
 ---
 
-## 🚀 Installation et Lancement Rapide
+## Installation et Lancement Rapide en Local
 
 ### Prérequis
 - **Python 3.10+**
@@ -141,7 +124,7 @@ x_finder/
 
 ### 1. Cloner le projet
 ```bash
-git clone https://github.com/votre-compte/x-finder.git
+git clone https://github.com/LynxxoV9/x-finder.git
 cd x_finder
 ```
 
@@ -184,105 +167,16 @@ python run.py
 Une fois le serveur lancé :
 - 🌐 **Interface Web de Chat** : [http://localhost:8000](http://localhost:8000)
 - 📖 **Documentation Swagger API** : [http://localhost:8000/docs](http://localhost:8000/docs)
-- 🩺 **Vérification de santé (Health Check)** : [http://localhost:8000/api/health](http://localhost:8000/api/health)
+-  **Vérification de santé (Health Check)** : [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
 ---
-
-## 🧪 Guide de Test pour l'Enseignant
-
-Pour évaluer rapidement le comportement de l'agent et constater la sélection dynamique des outils, vous pouvez saisir les requêtes de test suivantes :
-
-### Test 1 : Recherche Internet & Actualités (Tavily)
-> « Quelles sont les dernières actualités concernant l'intelligence artificielle ? »  
-> *L'agent invoque `search_web`, synthétise l'information et fournit les liens sources consultés.*
-
-### Test 2 : Météo & Comparaison Multi-Villes
-> « Quelle est la météo actuelle à Lomé et comment se compare-t-elle à celle d'Accra ? »  
-> *L'agent appelle `get_weather` avec `cities: "Lomé, Accra"` et génère un tableau comparatif de température, humidité et prévisions.*
-
-### Test 3 : Google Calendar & Gestion d'Agenda
-> « Quels sont mes événements programmés pour demain ? »  
-> *L'agent appelle `list_calendar_events` et liste les réunions.*  
-> « Planifie une réunion intitulée 'Point d'avancement IA' vendredi à 14h. »  
-> *L'agent appelle `create_calendar_event` et confirme la création.*
-
-### Test 4 : Notion (Recherche et Création)
-> « Retrouve mes notes sur le Machine Learning dans Notion et résume-les. »  
-> *L'agent appelle `search_notion` puis `read_notion_page` et répond à partir du contenu extrait.*
-
-### Test 5 : Google Drive (Recherche et Lecture documentaire)
-> « Retrouve ma proposition de projet dans Google Drive et résume ses points clés. »  
-> *L'agent sélectionne `search_drive_files`, extrait le document avec `read_drive_file_content` et synthétise le projet.*
-
-### Test 6 : Sécurité & Confirmation d'Email (Human-in-the-Loop)
-> « Rédige un email pour professeur@universite.fr pour lui transmettre le lien de rendu de l'assignment. »  
-> *L'agent appelle `prepare_email_draft`, affiche le brouillon et fait apparaître la **carte de confirmation interactive**. Aucun email n'est expédié tant que vous ne cliquez pas sur **'Valider et Expédier'**.*
-
-### Test 7 : 🏆 Défi Final (Enchaînement Multi-Outils dans une même tâche)
-> « Consulte mon Google Calendar pour demain, retrouve dans Notion mes notes sur le Machine Learning, recherche les actualités récentes sur les agents IA et prépare un email pour professeur@universite.fr résumant ces éléments. »  
-> *L'agent enchaîne méthodiquement les appels à `list_calendar_events`, `search_notion`, `search_web`, puis prépare le brouillon d'email complet.*
-
-### Test 8 : Spécialités X-Finder (OSINT, CTI & Multimodal)
-- **CTI** : « Analyse la menace CVE-2024-3094 et ses conséquences pour les serveurs Linux. »
-- **Chasseur d'Opportunités** : « Chasse les offres de stages et les compétitions CTF actives en cybersécurité. »
-- **Image Multimodale** : Cliquez sur le bouton *Image / Média*, chargez une capture d'écran ou un schéma technique et demandez « Analyse cette image pour en extraire le texte et les alertes de sécurité ».
-
----
-
-## 🔒 Sécurité et Gestion des Données Sensibles
-
-- **Zéro Clé en Dur** : Aucune clé API, mot de passe ou jeton OAuth n'est inscrit dans le code source.
-- **Exclusion Git Stricte** : Le fichier `.gitignore` bloque rigoureusement `.env`, `credentials.json`, `token.json`, `chat.db` et les logs d'expédition.
-- **Principe du Moindre Privilège** : Les scopes OAuth sont limités au strict nécessaire (`calendar` et `drive.readonly`).
-- **Isolation Sandbox** : Si un service n'est pas relié à un compte de production, un mode Bac à Sable (Sandbox) sécurisé enregistre les actions dans des fichiers locaux de démonstration sans exposer de comptes personnels.
-
----
-
-## 🌐 Modalités de Soumission et Déploiement en Ligne
-
-Conformément à la consigne :
-> *« La soumission attendue est le lien public vers l'interface de chat déployée et fonctionnelle. »*
-
-Comme le backend FastAPI sert directement le bundle React précompilé sur son port racine, l'ensemble de l'application (backend + frontend) peut être déployé en **un seul processus**.
-
-### Déploiement rapide sur le Cloud (ex: Render / Railway / VPS) :
-1. Créez un Web Service pointant sur votre repository GitHub.
-2. Commande de démarrage (Start Command) :
-   ```bash
-   uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
-   ```
-3. Définissez la variable d'environnement `RODIUMAI_API_KEY` dans le tableau de bord.
-4. L'URL publique fournie (ex: `https://x-finder-agent.onrender.com`) est immédiatement prête à être remise à l'enseignant pour évaluation en direct.
 
 ### Déploiement sur Vercel (GitHub + PostgreSQL) :
-1. Créez une base PostgreSQL persistante, par exemple sur Supabase, puis importez le dépôt `LynxxoV9/x-finder` dans Vercel en gardant la racine du dépôt comme répertoire du projet.
+1. Créez une base PostgreSQL persistante,  sur Supabase, puis importez le dépôt `LynxxoV9/x-finder` dans Vercel en gardant la racine du dépôt comme répertoire du projet.
 2. Dans **Settings → Environment Variables**, ajoutez `DATABASE_URL` (URL PostgreSQL), `RODIUMAI_API_KEY` et les autres clés d'intégration nécessaires. Ne mettez aucun secret dans Git. SQLite reste réservé au développement local.
 3. Déployez. Vercel construit le frontend et l'API FastAPI ; avec GitHub connecté, chaque push sur la branche de production déclenche un nouveau déploiement. Les autres branches créent des prévisualisations.
 
 Les images téléversées par l'API sont traitées en mémoire ; aucun stockage de fichiers local n'est requis. Configurez les variables de base de données dans chaque environnement Vercel utilisé (Production, Preview et Development).
 
-### Exposition publique instantanée via ngrok :
-Si vous hébergez temporairement depuis votre machine :
-```bash
-./run.sh
-# Dans un second terminal :
-ngrok http 8000
-```
-L'URL générée par ngrok (`https://xxxx.ngrok-free.app`) donne un accès public direct à l'interface de chat complète.
 
----
-
-## 📝 Résumé des Commandes Utiles
-
-```bash
-# 1. Lancer l'application complète
-python3 run.py
-
-# 2. Exécuter la suite de tests automatisés (11 tests unitaires et d'intégration)
-cd backend && venv/bin/pytest tests/ -v
-
-# 3. Recompiler le frontend si modifications visuelles
-cd frontend && npm run build
-```
-
-*Développé avec rigueur et passion pour l'intelligence artificielle agentique et la cybersécurité.*
+*Développé avec passion par lynxxoven pour l'intelligence artificielle agentique et la cybersécurité.*
