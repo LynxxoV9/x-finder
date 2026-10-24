@@ -193,5 +193,29 @@ Une fois le serveur lancé :
 
 Les images téléversées par l'API sont traitées en mémoire ; aucun stockage de fichiers local n'est requis. Configurez les variables de base de données dans chaque environnement Vercel utilisé (Production, Preview et Development).
 
+### Déploiement gratuit recommandé (Cloudflare Pages + Render + Neon)
+
+Le frontend statique est hébergé sur Cloudflare Pages. L'API FastAPI tourne sur Render et utilise une base PostgreSQL Neon persistante. Le relais `frontend/functions/api/[[path]].js` transmet `/api/*` au backend : le navigateur garde ainsi une seule origine pour l'API, les cookies de session et les callbacks OAuth. Ce montage évite de porter le backend actuel vers le runtime Workers.
+
+> Les offres gratuites ont des limites et ne constituent pas une garantie de disponibilité. Render Free endort le service après 15 minutes sans trafic ; son réveil peut prendre environ une minute. Ne mets pas de données sensibles ou critiques dans une application hobby sans sauvegardes et protection anti-abus.
+
+1. **Créer la base Neon** : crée un projet PostgreSQL sur [Neon](https://neon.com/), copie sa chaîne de connexion (avec SSL) et garde-la privée.
+2. **Créer le backend Render** : connecte le dépôt GitHub à [Render](https://render.com/) via **New → Blueprint** et sélectionne `render.yaml`. Lors de la configuration, renseigne :
+   - `DATABASE_URL` : chaîne PostgreSQL Neon ;
+   - `FRONTEND_ORIGIN` et `PUBLIC_BASE_URL` : l’origine Pages finale, par exemple `https://x-finder.pages.dev` (sans slash final) ;
+   - `RODIUMAI_API_KEY` : clé LLM.
+
+   Le manifeste génère `SECRET_KEY`. Attends le déploiement puis vérifie `https://<service>.onrender.com/api/health`.
+3. **Créer le frontend Cloudflare Pages** : dans Cloudflare, importe le dépôt sous **Workers & Pages → Create → Pages → Connect to Git**. Paramètres de build :
+   - répertoire racine : `frontend` ;
+   - commande : `npm run build` ;
+   - répertoire de sortie : `dist`.
+
+   Dans **Settings → Variables and Secrets**, ajoute `BACKEND_URL` avec l’URL Render, par exemple `https://x-finder-api.onrender.com` (sans slash final). Fais un nouveau déploiement après l’ajout.
+4. **Mettre les domaines en accord** : utilise exactement le domaine Pages final dans `FRONTEND_ORIGIN` et `PUBLIC_BASE_URL` sur Render. Pour OAuth, déclare chez Google/GitHub les URL de callback `https://<domaine-pages>/api/auth/google/callback` et/ou `https://<domaine-pages>/api/auth/github/callback`, puis ajoute les identifiants correspondants dans les variables Render.
+5. **Vérifier** : ouvre le domaine Pages, crée un compte, recharge la page pour vérifier la session, puis crée une conversation. Contrôle également `/api/health` sur Pages et l’absence d’erreurs dans les journaux Render/Cloudflare.
+
+Ajoute les clés optionnelles (Tavily, Notion, SMTP, Google Workspace) uniquement si tu actives ces intégrations. Ne committe jamais les valeurs des secrets. L’offre gratuite Render utilise un système de fichiers éphémère et peut s'endormir ; X-Finder utilise PostgreSQL pour préserver les comptes et conversations, et traite les images téléversées en mémoire.
+
 
 *Développé avec passion par lynxxoven pour l'intelligence artificielle agentique et la cybersécurité.*
