@@ -5,7 +5,9 @@ import sys
 # Ajout du chemin backend au PYTHONPATH
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.tools.web_search import search_web
+from app.tools.web_search import _is_cyber_authority, _normalize_results, search_web
+from app.agent.prompts import build_system_prompt
+from app.agent.registry import _attach_grounding
 from app.tools.weather import get_weather
 from app.tools.calendar_tool import list_events, search_events, create_event
 from app.tools.email_tool import prepare_email_draft
@@ -34,6 +36,55 @@ def test_search_web():
     assert "sources" in res
     if res["status"] == "success":
         assert len(res["results"]) > 0
+
+
+def test_latest_cve_prompt_requires_current_date_and_authoritative_sources():
+    prompt = build_system_prompt().lower()
+    assert "[date de référence utc :" in prompt
+    assert "une recherche fraîche" in prompt
+    assert "l'ordre des résultats" in prompt
+    assert "deuxième source indépendante faisant autorité" in prompt
+
+
+def test_cyber_authority_requires_an_official_domain():
+    assert _is_cyber_authority("https://nvd.nist.gov/vuln/detail/CVE-2026-1234")
+    assert _is_cyber_authority("https://www.cisa.gov/known-exploited-vulnerabilities-catalog")
+    assert not _is_cyber_authority("https://wikipedia.org/wiki/Example")
+    assert not _is_cyber_authority("https://cisa.gov.attacker.example/advisory")
+
+
+def test_search_results_mark_official_cyber_sources():
+    results = _normalize_results([
+        {"title": "NVD record", "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1234"},
+        {"title": "Search result", "url": "https://example.test/cve"},
+    ], 5)
+    assert results[0]["security_authority"] is True
+    assert results[1]["security_authority"] is False
+
+
+def test_grounding_separates_cyber_authority_from_general_reliability():
+    result = _attach_grounding("search_web", {
+        "status": "success",
+        "results": [
+            {"title": "NVD", "url": "https://nvd.nist.gov/cve", "content": "Official record",
+             "reliability": "medium", "security_authority": True},
+            {"title": "Wikipedia", "url": "https://wikipedia.org/wiki/CVE", "content": "Summary",
+             "reliability": "high", "security_authority": False},
+        ],
+    })
+    assert [item["title"] for item in result["cyber_authority_candidates"]] == ["NVD"]
+
+
+def test_grounding_warns_when_search_has_no_cyber_authority():
+    result = _attach_grounding("search_web", {
+        "status": "success",
+        "results": [
+            {"title": "Blog", "url": "https://example.test/cve", "content": "Summary",
+             "reliability": "medium", "security_authority": False},
+        ],
+    })
+    assert "N'affirme pas de détails techniques" in result["cybersecurity_grounding_advice"]
+
 
 # Test 2 : Météo (avec repli Open-Meteo sans clé)
 def test_weather_single_and_multi():

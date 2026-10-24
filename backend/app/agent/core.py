@@ -6,7 +6,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.agent.prompts import SYSTEM_PROMPT, TOOL_GROUNDING_REMINDER
+from app.agent.prompts import build_system_prompt, TOOL_GROUNDING_REMINDER
 from app.agent.registry import TOOL_DEFINITIONS, execute_tool_call
 from app.database.models import Message, ToolExecution, PendingConfirmation
 
@@ -40,7 +40,7 @@ async def run_agent_turn(
     history_messages = db.query(Message).filter(Message.conversation_id == conversation_id).order_by(Message.id).all()
 
     # 2. Construction de la charge de messages pour le LLM
-    llm_messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    llm_messages = [{"role": "system", "content": build_system_prompt()}]
 
     for msg in history_messages:
         if msg.role == "user":

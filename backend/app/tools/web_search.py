@@ -1,5 +1,6 @@
 import re
 from typing import Dict, Any, List, Optional
+from urllib.parse import urlparse
 import httpx
 from app.config import settings
 
@@ -31,6 +32,23 @@ _LOW_RELIABILITY = (
     "quora.com", "pinterest.com", "tumblr.com", "blogspot.", "wordpress.com",
     "medium.com", "forum.", "forums.",
 )
+_CYBER_AUTHORITY_DOMAINS = (
+    "cve.org",
+    "nist.gov",
+    "cisa.gov",
+    "cert.europa.eu",
+    "ncsc.nl",
+    "microsoft.com",
+    "php.net",
+)
+
+
+def _is_cyber_authority(url: str) -> bool:
+    hostname = (urlparse(url).hostname or "").lower().rstrip(".")
+    return any(
+        hostname == domain or hostname.endswith(f".{domain}")
+        for domain in _CYBER_AUTHORITY_DOMAINS
+    )
 
 
 def _source_reliability(url: str) -> str:
@@ -55,6 +73,7 @@ def _normalize_results(raw: List[Dict[str, Any]], max_results: int) -> List[Dict
             continue
         seen.add(url)
         reliability = _source_reliability(url)
+        security_authority = _is_cyber_authority(url)
         cleaned.append({
             "title": title,
             "url": url,
@@ -62,11 +81,17 @@ def _normalize_results(raw: List[Dict[str, Any]], max_results: int) -> List[Dict
             "published_date": item.get("published_date"),
             "reliability": reliability,
             "use_as_hard_fact": reliability == "high",
+            "security_authority": security_authority,
             "warning": (
                 "Source faible : ne pas affirmer un fait biographique sensible "
                 "(enfants, décès, mariage) à partir de ce seul résultat."
                 if reliability == "low"
-                else None
+                else (
+                    "Pour une affirmation de cybersécurité, vérifier une source officielle "
+                    "CVE/NVD/CISA ou un avis officiel du fournisseur."
+                    if not security_authority
+                    else None
+                )
             ),
         })
         if len(cleaned) >= max_results:
@@ -352,7 +377,7 @@ def search_web(
 
     max_results = max(1, min(int(max_results or 5), 10))
 
-    # Ordre : Tavily (si clé réelle) → DDGS → Wikipedia (fiable) → DDG HTML/Instant
+    # Ordre : Tavily (si clé réelle) → DDGS → Wikipedia → DDG HTML/Instant
     for provider_fn in (
         lambda: _search_tavily(q, search_depth, max_results, include_news),
         lambda: _search_ddgs(q, max_results),

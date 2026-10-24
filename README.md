@@ -12,10 +12,10 @@
 
 ## Aperçu de l'application
 
-Les captures d'écran seront ajoutées ici.
+![Interface principale de X-Finder](Images/x-finder_interface.png)
 
 ### Interface principale
-<!-- Ajouter ici une capture de l'interface principale. -->
+L'écran principal regroupe la conversation avec l'agent, la sélection du modèle et les outils disponibles.
 
 ### Investigation et résultats
 <!-- Ajouter ici une capture d'une investigation et de ses résultats. -->
@@ -206,6 +206,21 @@ Le frontend statique est hébergé sur Cloudflare Pages. L'API FastAPI tourne su
    - `RODIUMAI_API_KEY` : clé LLM.
 
    Le manifeste génère `SECRET_KEY`. Attends le déploiement puis vérifie `https://<service>.onrender.com/api/health`.
+
+   **Activer la recherche Tavily et l’envoi SMTP** : dans le service Render, ouvre **Environment** et ajoute les variables ci-dessous. Elles doivent être configurées sur Render indépendamment de ton fichier `.env` local :
+
+   | Variable | Valeur |
+   |---|---|
+   | `TAVILY_API_KEY` | Ta clé API Tavily |
+   | `SMTP_HOST` | `smtp.gmail.com` |
+   | `SMTP_PORT` | `587` |
+   | `SMTP_USE_TLS` | `true` |
+   | `SMTP_USER` | `flowoliv@gmail.com` |
+   | `SMTP_FROM_EMAIL` | `flowoliv@gmail.com` |
+   | `SMTP_PASSWORD` | Le mot de passe d’application Google, pas le mot de passe habituel du compte |
+
+   Enregistre les variables et redéploie le service (ou déclenche un redémarrage). Ne colle jamais ces secrets dans le dépôt ni dans un message. Vérifie ensuite `https://<service>.onrender.com/api/health` : `integrations.tavily` doit être `true` et `integrations.smtp.configured` doit être `true`. Si SMTP reste désactivé, contrôle que les trois variables SMTP utilisateur, expéditeur et mot de passe sont toutes renseignées sur le service Render.
+
 3. **Créer le frontend Cloudflare Pages** : dans Cloudflare, importe le dépôt sous **Workers & Pages → Create → Pages → Connect to Git**. Paramètres de build :
    - répertoire racine : `frontend` ;
    - commande : `npm run build` ;

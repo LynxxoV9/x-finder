@@ -28,7 +28,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "search_web",
-            "description": "Recherche web temps réel (Tavily si clé valide, sinon DuckDuckGo). Retourne titres, URLs et extraits réels uniquement.",
+            "description": "Recherche web temps réel (Tavily si clé valide, sinon DuckDuckGo). Retourne titres, URLs, extraits et indicateur security_authority. Pour toute question sur la CVE la plus récente, interroger la période actuelle et vérifier les dates dans des sources officielles ; l'ordre du moteur n'est pas chronologique.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -293,7 +293,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "cti_threat_lookup",
-            "description": "Veille CTI et Cyber Threat Intelligence sur une CVE, un acteur de menace, un malware ou un IOC.",
+            "description": "Veille CTI sur une CVE nommée, un acteur de menace, un malware ou un IOC. Pour déterminer la CVE la plus récente, cet outil seul ne suffit pas : effectuer une recherche datée dans les sources officielles CVE/NVD/CISA.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -450,14 +450,24 @@ def _attach_grounding(tool_name: str, result: Dict[str, Any]) -> Dict[str, Any]:
     if tool_name == "search_web" and isinstance(out.get("results"), list):
         hard = [r for r in out["results"] if r.get("use_as_hard_fact") or r.get("reliability") == "high"]
         weak = [r for r in out["results"] if r.get("reliability") == "low"]
+        cyber_authorities = [r for r in out["results"] if r.get("security_authority") is True]
         out["hard_fact_candidates"] = [
             {"title": r.get("title"), "url": r.get("url"), "content": r.get("content")}
             for r in hard
+        ]
+        out["cyber_authority_candidates"] = [
+            {"title": r.get("title"), "url": r.get("url"), "content": r.get("content")}
+            for r in cyber_authorities
         ]
         out["weak_sources_do_not_assert_from_alone"] = [
             {"title": r.get("title"), "url": r.get("url")}
             for r in weak
         ]
+        if out.get("results") and not cyber_authorities:
+            out["cybersecurity_grounding_advice"] = (
+                "Aucun avis officiel CVE/NVD/CISA ou fournisseur identifié. "
+                "N'affirme pas de détails techniques ni de classement chronologique de CVE."
+            )
         if not hard and out.get("results"):
             out["grounding_advice"] = (
                 "Aucune source high-reliability. Ne confirme pas de faits biographiques "
