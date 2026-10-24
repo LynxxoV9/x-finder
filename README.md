@@ -1,6 +1,6 @@
 # 🛡️ X-Finder : Agent IA Personnel Autonome avec Tool Calling (RodiumAi Bootcamp - Module 6)
 
-> 🚀 **Application déployée : [Ouvrir X-Finder](https://x-finder-chi.vercel.app/)**
+> 🚀 **Application déployée : [Ouvrir X-Finder](https://x-finder-api.onrender.com/)**
 
 > **Assignment de cours** : Développer un agent IA personnel capable d'utiliser des outils externes pour effectuer des tâches concrètes à la demande de l'utilisateur.  
 > **Spécialité X-Finder** : OSINT (Open Source Intelligence), Cyber Threat Intelligence (CTI), Détection d'Opportunités (Stages, Emplois, Hackathons, CTF) & Recherche Multimodale (Texte + Image).  
