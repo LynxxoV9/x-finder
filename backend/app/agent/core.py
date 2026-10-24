@@ -26,6 +26,15 @@ async def run_agent_turn(
     Prend en charge la sélection dynamique d'outils, le multi-tool chaining et les entrées multimodales.
     """
     selected_model = model or settings.DEFAULT_MODEL
+    if not settings.RODIUMAI_API_KEY:
+        return {
+            "status": "error",
+            "conversation_id": conversation_id,
+            "model": selected_model,
+            "response": "La clé RODIUMAI_API_KEY n'est pas configurée sur le serveur.",
+            "executed_tools": [],
+            "pending_confirmation": None,
+        }
 
     # 1. Récupération de l'historique de la conversation
     history_messages = db.query(Message).filter(Message.conversation_id == conversation_id).order_by(Message.id).all()

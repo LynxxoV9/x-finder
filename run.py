@@ -11,12 +11,15 @@ import socket
 import webbrowser
 import time
 import argparse
+import hashlib
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = ROOT_DIR / "backend"
 FRONTEND_DIR = ROOT_DIR / "frontend"
 VENV_DIR = BACKEND_DIR / "venv"
+REQUIREMENTS_FILE = BACKEND_DIR / "requirements.txt"
+REQUIREMENTS_MARKER = VENV_DIR / ".requirements.sha256"
 
 # Détection de l'exécutable Python dans le venv
 if sys.platform == "win32":
@@ -37,14 +40,31 @@ def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
 def ensure_backend_env():
     """Vérifie et configure l'environnement virtuel et les dépendances Python."""
     print("🔍 [1/3] Vérification de l'environnement Python...")
+    created_venv = False
     if not VENV_PYTHON.exists():
         print(f"  Création de l'environnement virtuel dans {VENV_DIR}...")
         subprocess.check_call([sys.executable, "-m", "venv", str(VENV_DIR)])
-        print("  Installation des dépendances backend...")
-        subprocess.check_call([str(VENV_PIP), "install", "--upgrade", "pip"])
-        subprocess.check_call([str(VENV_PIP), "install", "-r", str(BACKEND_DIR / "requirements.txt")])
+        created_venv = True
     else:
         print("  Environnement virtuel Python prêt.")
+
+    requirements_hash = hashlib.sha256(REQUIREMENTS_FILE.read_bytes()).hexdigest()
+    installed_hash = REQUIREMENTS_MARKER.read_text(encoding="utf-8").strip() if REQUIREMENTS_MARKER.exists() else ""
+    if installed_hash != requirements_hash:
+        print("  Installation ou mise à jour des dépendances backend...")
+        if created_venv:
+            subprocess.check_call([str(VENV_PYTHON), "-m", "pip", "install", "--upgrade", "pip"])
+        subprocess.check_call([
+            str(VENV_PYTHON),
+            "-m",
+            "pip",
+            "install",
+            "-r",
+            str(REQUIREMENTS_FILE),
+        ])
+        REQUIREMENTS_MARKER.write_text(requirements_hash + "\n", encoding="utf-8")
+    else:
+        print("  Dépendances backend à jour.")
 
     # Vérification du fichier .env
     env_file = ROOT_DIR / ".env"

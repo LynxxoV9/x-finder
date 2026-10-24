@@ -15,6 +15,14 @@ import {
   sendChatMessage,
   respondConfirmation,
 } from './api/client';
+import {
+  AuthUser,
+  getAuthSession,
+  logoutAccount,
+  setCsrfToken,
+} from './api/client';
+import { AuthScreen } from './components/AuthScreen';
+import { ProfileMenu } from './components/ProfileMenu';
 import { ConversationSummary, ConversationDetails, MessageItem } from './types';
 import { Language, translations } from './i18n/translations';
 import { Shield } from 'lucide-react';
@@ -27,6 +35,13 @@ export const App: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<string>('google/gemini-2.5-flash-lite');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isToolsModalOpen, setIsToolsModalOpen] = useState<boolean>(false);
+  const [draftRequest, setDraftRequest] = useState<{
+    id: number;
+    text: string;
+    imageUrl?: string;
+  } | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // État bilingue Français / Anglais
   const [lang, setLang] = useState<Language>(() => {
@@ -68,8 +83,33 @@ export const App: React.FC = () => {
   }, [activeDetails?.messages, isLoading]);
 
   useEffect(() => {
-    loadConversations();
+    getAuthSession()
+      .then((user) => {
+        setAuthUser(user);
+        setCsrfToken(user.csrf_token);
+        return loadConversations();
+      })
+      .catch(() => setAuthUser(null))
+      .finally(() => setAuthLoading(false));
   }, []);
+
+  const handleAuthenticated = (user: AuthUser) => {
+    setAuthUser(user);
+    setCsrfToken(user.csrf_token);
+    void loadConversations();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutAccount();
+      setAuthUser(null);
+      setConversations([]);
+      setActiveId(null);
+      setActiveDetails(null);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const loadConversations = async () => {
     try {
@@ -200,6 +240,13 @@ export const App: React.FC = () => {
     },
   ];
 
+  if (authLoading) {
+    return <main className="auth-screen"><p className="auth-description">X-Finder…</p></main>;
+  }
+  if (!authUser) {
+    return <AuthScreen lang={lang} onAuthenticated={handleAuthenticated} />;
+  }
+
   return (
     <>
       {/* 1. Lumière ambiante en arrière-plan avec mouvement et variation d'intensité 3D */}
@@ -232,6 +279,12 @@ export const App: React.FC = () => {
             </div>
             <div className="header-meta">
               <span>{t.online_region}</span>
+              <ProfileMenu
+                user={authUser}
+                lang={lang}
+                onUpdated={setAuthUser}
+                onLogout={() => void handleLogout()}
+              />
             </div>
           </header>
 
@@ -262,7 +315,25 @@ export const App: React.FC = () => {
                     msg.role === 'assistant'
                       ? activeDetails.executed_tools.slice(index > 0 ? index - 1 : 0, index + 2)
                       : [];
-                  return <MessageItemView key={msg.id || index} message={msg} tools={toolsForMsg} />;
+                  return (
+                    <MessageItemView
+                      key={msg.id || index}
+                      message={msg}
+                      tools={toolsForMsg}
+                      lang={lang}
+                      isLoading={isLoading}
+                      onRetry={(userMessage) => {
+                        if (userMessage.content || userMessage.image_url) {
+                          void handleSendMessage(userMessage.content || '', userMessage.image_url);
+                        }
+                      }}
+                      onEdit={(userMessage) => setDraftRequest({
+                        id: userMessage.id || index,
+                        text: userMessage.content || '',
+                        imageUrl: userMessage.image_url,
+                      })}
+                    />
+                  );
                 })}
 
                 {activeDetails.pending_confirmations?.map((conf) => (
@@ -317,7 +388,14 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          <ChatInput onSend={handleSendMessage} isLoading={isLoading} lang={lang} />
+          <ChatInput
+            onSend={handleSendMessage}
+            isLoading={isLoading}
+            lang={lang}
+            draftRequest={draftRequest}
+            onDraftConsumed={() => setDraftRequest(null)}
+            onCancelDraft={() => setDraftRequest(null)}
+          />
         </main>
 
         <ToolsModal isOpen={isToolsModalOpen} onClose={() => setIsToolsModalOpen(false)} lang={lang} />

@@ -5,21 +5,35 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database.db import get_db, init_db
 from app.database.models import Conversation, Message, ToolExecution, PendingConfirmation
+from app.database.models import User, UserSession
 from app.agent.core import run_agent_turn
 from app.agent.registry import TOOL_DEFINITIONS, FUNCTION_MAP
 from app.tools.email_tool import send_email_confirmed, smtp_status
 from app.tools.calendar_tool import delete_event
 from app.tools.web_search import _is_usable_tavily_key
+from app.auth import (
+    SESSION_COOKIE,
+    _clear_session_cookie,
+    _hash_token,
+    _set_session_cookie,
+    current_user_payload,
+    finish_oauth,
+    get_current_user,
+    password_hash,
+    require_csrf,
+    start_oauth,
+)
 
 # Initialisation de la base de données
 init_db()
@@ -30,10 +44,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configuration CORS pour autoriser l'accès depuis n'importe quelle interface
+allowed_origins = [settings.FRONTEND_ORIGIN]
+if settings.ENVIRONMENT != "production":
+    allowed_origins.extend(["http://localhost:5173", "http://127.0.0.1:5173"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=list(dict.fromkeys(allowed_origins)),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,6 +71,21 @@ class NewConversationRequest(BaseModel):
     model: Optional[str] = None
 
 
+class RegisterRequest(BaseModel):
+    email: str = Field(max_length=320)
+    password: str = Field(max_length=128)
+    display_name: Optional[str] = Field(default=None, max_length=120)
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(max_length=320)
+    password: str = Field(max_length=128)
+
+
+class ProfileUpdateRequest(BaseModel):
+    display_name: Optional[str] = Field(default=None, max_length=120)
+
+
 def _load_json(value: Optional[str], fallback: Any = None) -> Any:
     if value is None:
         return fallback
@@ -63,11 +95,135 @@ def _load_json(value: Optional[str], fallback: Any = None) -> Any:
         return fallback
 
 
+@app.post("/api/auth/register")
+def register(
+    req: RegisterRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    email = req.email.strip().lower()
+    if len(email) > 320 or email.count("@") != 1 or "." not in email.rsplit("@", 1)[-1]:
+        raise HTTPException(status_code=422, detail="Adresse email invalide.")
+    if len(req.password) < 12 or len(req.password) > 128:
+        raise HTTPException(status_code=422, detail="Le mot de passe doit contenir entre 12 et 128 caractères.")
+    if req.display_name and len(req.display_name.strip()) > 120:
+        raise HTTPException(status_code=422, detail="Le nom est trop long.")
+    if db.query(User).filter_by(email=email).first():
+        raise HTTPException(status_code=409, detail="Un compte existe déjà avec cette adresse.")
+
+    user = User(
+        email=email,
+        display_name=(req.display_name or "").strip() or None,
+        password_hash=password_hash.hash(req.password),
+    )
+    db.add(user)
+    try:
+        db.commit()
+        db.refresh(user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Un compte existe déjà avec cette adresse.")
+    session_token = _set_session_cookie(response, db, user)
+    response.headers["Cache-Control"] = "no-store"
+    return current_user_payload(request, user, session_token)
+
+
+@app.post("/api/auth/login")
+def login(
+    req: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    email = req.email.strip().lower()
+    user = db.query(User).filter_by(email=email).first()
+    if (
+        user is None
+        or user.password_hash is None
+        or not password_hash.verify(req.password, user.password_hash)
+    ):
+        raise HTTPException(status_code=401, detail="Adresse email ou mot de passe incorrect.")
+    session_token = _set_session_cookie(response, db, user)
+    response.headers["Cache-Control"] = "no-store"
+    return current_user_payload(request, user, session_token)
+
+
+@app.get("/api/auth/me")
+def auth_me(request: Request, response: Response, user: User = Depends(get_current_user)):
+    response.headers["Cache-Control"] = "no-store"
+    return current_user_payload(request, user)
+
+
+@app.patch("/api/auth/me")
+def update_auth_me(
+    req: ProfileUpdateRequest,
+    request: Request,
+    response: Response,
+    user: User = Depends(require_csrf),
+    db: Session = Depends(get_db),
+):
+    if "display_name" in req.model_fields_set:
+        display_name = (req.display_name or "").strip()
+        if len(display_name) > 120:
+            raise HTTPException(status_code=422, detail="Le nom est trop long.")
+        user.display_name = display_name or None
+        db.commit()
+        db.refresh(user)
+    response.headers["Cache-Control"] = "no-store"
+    return current_user_payload(request, user)
+
+
+@app.get("/api/auth/providers")
+def auth_providers():
+    return {
+        "google": bool(settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET),
+        "github": bool(settings.GITHUB_CLIENT_ID and settings.GITHUB_CLIENT_SECRET),
+    }
+
+
+@app.post("/api/auth/logout")
+def logout(
+    request: Request,
+    response: Response,
+    user: User = Depends(require_csrf),
+    db: Session = Depends(get_db),
+):
+    token = request.cookies.get(SESSION_COOKIE, "")
+    db.query(UserSession).filter_by(token_hash=_hash_token(token), user_id=user.id).delete()
+    db.commit()
+    _clear_session_cookie(response)
+    response.headers["Cache-Control"] = "no-store"
+    return {"status": "signed_out"}
+
+
+@app.get("/api/auth/{provider}/login")
+async def oauth_login(provider: str, request: Request, db: Session = Depends(get_db)):
+    return await start_oauth(provider, request, db)
+
+
+@app.get("/api/auth/{provider}/callback")
+async def oauth_callback(
+    provider: str,
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return await finish_oauth(provider, request, db, code, state, error)
+
+
 # 1. Routes de gestion des conversations
 @app.post("/api/conversations")
-def create_conversation(req: NewConversationRequest, db: Session = Depends(get_db)):
+def create_conversation(
+    req: NewConversationRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_csrf),
+):
     """Crée une nouvelle session de conversation."""
     conv = Conversation(
+        user_id=user.id,
         title=req.title,
         model_used=req.model or settings.DEFAULT_MODEL
     )
@@ -78,9 +234,9 @@ def create_conversation(req: NewConversationRequest, db: Session = Depends(get_d
 
 
 @app.get("/api/conversations")
-def list_conversations(db: Session = Depends(get_db)):
+def list_conversations(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     """Récupère l'historique de toutes les missions/conversations."""
-    convs = db.query(Conversation).order_by(Conversation.updated_at.desc()).all()
+    convs = db.query(Conversation).filter_by(user_id=user.id).order_by(Conversation.updated_at.desc()).all()
     return {
         "conversations": [
             {
@@ -96,9 +252,13 @@ def list_conversations(db: Session = Depends(get_db)):
 
 
 @app.get("/api/conversations/{conversation_id}")
-def get_conversation_details(conversation_id: int, db: Session = Depends(get_db)):
+def get_conversation_details(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     """Renvoie les messages, outils exécutés et confirmations d'une conversation."""
-    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    conv = db.query(Conversation).filter_by(id=conversation_id, user_id=user.id).first()
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation introuvable.")
 
@@ -152,9 +312,13 @@ def get_conversation_details(conversation_id: int, db: Session = Depends(get_db)
 
 
 @app.delete("/api/conversations/{conversation_id}")
-def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
+def delete_conversation(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_csrf),
+):
     """Supprime une conversation et toutes ses données associées."""
-    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    conv = db.query(Conversation).filter_by(id=conversation_id, user_id=user.id).first()
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation introuvable.")
     db.delete(conv)
@@ -164,7 +328,11 @@ def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
 
 # 2. Endpoint de discussion principal (Tool Calling Agent)
 @app.post("/api/chat")
-async def chat_with_agent(req: ChatRequest, db: Session = Depends(get_db)):
+async def chat_with_agent(
+    req: ChatRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_csrf),
+):
     """
     Envoie un message à l'agent X-Finder.
     Déclenche la sélection dynamique d'outils, la boucle de raisonnement et retourne la réponse consolidée.
@@ -173,11 +341,17 @@ async def chat_with_agent(req: ChatRequest, db: Session = Depends(get_db)):
     if not conv_id:
         # Création automatique de la conversation avec titre dérivé du premier message
         preview = req.message[:45] + ("..." if len(req.message) > 45 else "")
-        new_conv = Conversation(title=preview or "Mission X-Finder", model_used=req.model or settings.DEFAULT_MODEL)
+        new_conv = Conversation(
+            user_id=user.id,
+            title=preview or "Mission X-Finder",
+            model_used=req.model or settings.DEFAULT_MODEL,
+        )
         db.add(new_conv)
         db.commit()
         db.refresh(new_conv)
         conv_id = new_conv.id
+    elif not db.query(Conversation).filter_by(id=conv_id, user_id=user.id).first():
+        raise HTTPException(status_code=404, detail="Conversation introuvable.")
 
     result = await run_agent_turn(
         conversation_id=conv_id,
@@ -191,12 +365,19 @@ async def chat_with_agent(req: ChatRequest, db: Session = Depends(get_db)):
 
 # 3. Validation ou rejet d'une action sensible nécessitant confirmation
 @app.post("/api/confirmations/{confirmation_id}/respond")
-def respond_to_confirmation(confirmation_id: int, req: ConfirmationResponse, db: Session = Depends(get_db)):
+def respond_to_confirmation(
+    confirmation_id: int,
+    req: ConfirmationResponse,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_csrf),
+):
     """
     Traite la décision de l'utilisateur pour une action protégée (ex: envoi d'email réel, suppression).
     """
     conf = db.query(PendingConfirmation).filter(PendingConfirmation.id == confirmation_id).first()
-    if not conf:
+    if not conf or not db.query(Conversation).filter_by(
+        id=conf.conversation_id, user_id=user.id
+    ).first():
         raise HTTPException(status_code=404, detail="Demande de confirmation introuvable.")
 
     if conf.status != "pending":
@@ -251,7 +432,7 @@ def respond_to_confirmation(confirmation_id: int, req: ConfirmationResponse, db:
 
 # 4. Upload de fichier image pour reconnaissance multimodale OSINT
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), user: User = Depends(require_csrf)):
     """Retourne une image téléversée en mémoire, sans dépendre d'un disque persistant."""
     filename = Path(file.filename or "upload").name
     content = await file.read()
@@ -269,7 +450,7 @@ async def upload_file(file: UploadFile = File(...)):
 
 # 5. Liste des outils disponibles et métadonnées
 @app.get("/api/tools")
-def list_available_tools():
+def list_available_tools(user: User = Depends(get_current_user)):
     """Retourne l'inventaire complet des outils connectés à l'agent."""
     return {
         "agent": "X-Finder Elite Agent",

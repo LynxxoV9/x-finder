@@ -53,12 +53,31 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./data/uploads")
 
     # Serveur
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development").lower()
+    FRONTEND_ORIGIN: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173").rstrip("/")
+    PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+    SESSION_COOKIE_NAME: str = os.getenv("SESSION_COOKIE_NAME", "xfinder_session")
+    SESSION_TTL_HOURS: int = int(os.getenv("SESSION_TTL_HOURS", "720"))
     APP_HOST: str = os.getenv("APP_HOST", "0.0.0.0")
     APP_PORT: int = int(os.getenv("APP_PORT", "8000"))
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "default-xfinder-secret-key")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "development-only-change-me")
+
+    # Connexion OAuth
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    GITHUB_CLIENT_ID: str = os.getenv("GITHUB_CLIENT_ID", "")
+    GITHUB_CLIENT_SECRET: str = os.getenv("GITHUB_CLIENT_SECRET", "")
 
     class Config:
         env_file = ".env"
         extra = "ignore"
 
 settings = Settings()
+
+if settings.ENVIRONMENT == "production" and (
+    settings.SECRET_KEY == "development-only-change-me"
+    or len(settings.SECRET_KEY) < 32
+):
+    raise RuntimeError("SECRET_KEY doit contenir au moins 32 caractères aléatoires en production.")
+if settings.SESSION_TTL_HOURS < 1:
+    raise RuntimeError("SESSION_TTL_HOURS doit être supérieur ou égal à 1.")

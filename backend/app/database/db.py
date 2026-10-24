@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker, Session
 from app.config import settings
 from app.database.models import Base
@@ -30,6 +30,16 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Initialisation des tables de la base de données
 def init_db():
     Base.metadata.create_all(bind=engine)
+    columns = {column["name"] for column in inspect(engine).get_columns("conversations")}
+    if "user_id" not in columns:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "ALTER TABLE conversations ADD COLUMN user_id INTEGER REFERENCES users(id)"
+            )
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_conversations_user_id ON conversations (user_id)"
+        )
 
 # Dépendance FastAPI pour injecter la session de base de données
 def get_db():

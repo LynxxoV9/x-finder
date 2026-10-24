@@ -16,28 +16,89 @@ import {
   Terminal,
   Network,
   Search,
+  Copy,
+  Pencil,
+  RotateCcw,
 } from 'lucide-react';
 import { MessageItem, ToolExecutionRecord } from '../types';
 import { MermaidChart } from './MermaidChart';
+import { Language } from '../i18n/translations';
 
 interface MessageItemViewProps {
   message: MessageItem;
   tools?: ToolExecutionRecord[];
+  lang: Language;
+  isLoading: boolean;
+  onRetry: (message: MessageItem) => void;
+  onEdit: (message: MessageItem) => void;
 }
 
-export const MessageItemView: React.FC<MessageItemViewProps> = ({ message, tools = [] }) => {
+export const MessageItemView: React.FC<MessageItemViewProps> = ({
+  message,
+  tools = [],
+  lang,
+  isLoading,
+  onRetry,
+  onEdit,
+}) => {
+  const [copyStatus, setCopyStatus] = useState('');
+
   if (message.role === 'user') {
+    const isFrench = lang === 'fr';
+    const copyMessage = async () => {
+      try {
+        await navigator.clipboard.writeText(message.content || '');
+        setCopyStatus(isFrench ? 'Copié' : 'Copied');
+      } catch {
+        setCopyStatus(isFrench ? 'Copie impossible' : 'Copy failed');
+      }
+      window.setTimeout(() => setCopyStatus(''), 2000);
+    };
+
     return (
       <div className="message-row user">
-        <div className="user-bubble">
-          {message.content}
-          {message.image_url && (
-            <img
-              src={message.image_url}
-              alt="Média d'investigation"
-              className="user-image-preview"
-            />
-          )}
+        <div className="user-message-content">
+          <div className="user-bubble">
+            {message.content}
+            {message.image_url && (
+              <img
+                src={message.image_url}
+                alt={isFrench ? "Média d'investigation" : 'Attached image'}
+                className="user-image-preview"
+              />
+            )}
+          </div>
+          <div className="message-actions">
+            <button
+              type="button"
+              onClick={() => void copyMessage()}
+              title={isFrench ? 'Copier la question' : 'Copy prompt'}
+              aria-label={isFrench ? 'Copier la question' : 'Copy prompt'}
+            >
+              <Copy size={14} />
+              <span>{copyStatus || (isFrench ? 'Copier' : 'Copy')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onEdit(message)}
+              disabled={isLoading}
+              title={isFrench ? 'Modifier la question' : 'Edit prompt'}
+              aria-label={isFrench ? 'Modifier la question' : 'Edit prompt'}
+            >
+              <Pencil size={14} />
+              <span>{isFrench ? 'Modifier' : 'Edit'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onRetry(message)}
+              disabled={isLoading}
+              title={isFrench ? 'Relancer cette question' : 'Retry this prompt'}
+              aria-label={isFrench ? 'Relancer cette question' : 'Retry this prompt'}
+            >
+              <RotateCcw size={14} />
+              <span>{isFrench ? 'Relancer' : 'Retry'}</span>
+            </button>
+          </div>
         </div>
       </div>
     );

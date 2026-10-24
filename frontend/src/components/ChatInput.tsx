@@ -1,19 +1,44 @@
-import React, { useRef, useState } from 'react';
-import { Send, Image, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Send, Image, X, Pencil } from 'lucide-react';
 import { Language, translations } from '../i18n/translations';
 
 interface ChatInputProps {
   onSend: (message: string, imageBase64?: string) => void;
   isLoading: boolean;
   lang?: Language;
+  draftRequest?: { id: number; text: string; imageUrl?: string } | null;
+  onDraftConsumed?: () => void;
+  onCancelDraft?: () => void;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading, lang = 'fr' }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({
+  onSend,
+  isLoading,
+  lang = 'fr',
+  draftRequest = null,
+  onDraftConsumed,
+  onCancelDraft,
+}) => {
   const [text, setText] = useState('');
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const t = translations[lang];
+
+  useEffect(() => {
+    if (draftRequest) {
+      setText(draftRequest.text);
+      setImageBase64(draftRequest.imageUrl || null);
+      setImageName(
+        draftRequest.imageUrl
+          ? (lang === 'fr' ? 'Image jointe' : 'Attached image')
+          : null,
+      );
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      textareaRef.current?.focus();
+    }
+  }, [draftRequest, lang]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -44,11 +69,31 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading, lang = 
     if ((!text.trim() && !imageBase64) || isLoading) return;
     onSend(text.trim(), imageBase64 || undefined);
     setText('');
+    onDraftConsumed?.();
     clearImage();
+  };
+
+  const cancelDraft = () => {
+    setText('');
+    clearImage();
+    onCancelDraft?.();
   };
 
   return (
     <div className="chat-input-area">
+      {draftRequest && (
+        <div className="edit-draft-notice">
+          <Pencil size={14} />
+          <span>
+            {lang === 'fr'
+              ? 'Modifiez la question puis envoyez-la comme nouveau message.'
+              : 'Edit the prompt, then send it as a new message.'}
+          </span>
+          <button type="button" onClick={cancelDraft}>
+            {lang === 'fr' ? 'Annuler' : 'Cancel'}
+          </button>
+        </div>
+      )}
       <div className="input-wrapper">
         {/* Aperçu de l'image sélectionnée */}
         {imageBase64 && (
@@ -65,6 +110,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading, lang = 
         )}
 
         <textarea
+          ref={textareaRef}
           className="chat-textarea"
           placeholder={t.input_placeholder}
           value={text}
