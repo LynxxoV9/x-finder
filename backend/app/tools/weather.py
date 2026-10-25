@@ -62,10 +62,52 @@ PRESET_COORDS = {
 }
 
 def _fetch_single_city_weather(city: str, days: int = 1) -> Dict[str, Any]:
-    """Interroge WeatherAPI, OpenWeather ou Open-Meteo en repli sans clé."""
+    """Interroge OpenWeatherMap, WeatherAPI ou Open-Meteo en repli sans clé."""
     city_clean = city.strip()
-    
-    # 1. Tentative avec WeatherAPI si clé fournie
+
+    # 1. Tentative avec OpenWeatherMap si clé fournie
+    ow_key = (settings.OPENWEATHER_API_KEY or settings.WEATHER_API_KEY or "").strip()
+    if ow_key and len(ow_key) == 32:
+        try:
+            url_w = f"https://api.openweathermap.org/data/2.5/weather?q={city_clean}&appid={ow_key}&units=metric&lang=fr"
+            url_f = f"https://api.openweathermap.org/data/2.5/forecast?q={city_clean}&appid={ow_key}&units=metric&lang=fr"
+            with httpx.Client(timeout=10.0) as client:
+                res_w = client.get(url_w)
+                if res_w.status_code == 200:
+                    data_w = res_w.json()
+                    res_f = client.get(url_f)
+                    forecast_days = []
+                    if res_f.status_code == 200:
+                        data_f = res_f.json()
+                        seen_dates = set()
+                        for it in data_f.get("list", []):
+                            dt_txt = it.get("dt_txt", "").split(" ")[0]
+                            if dt_txt and dt_txt not in seen_dates:
+                                seen_dates.add(dt_txt)
+                                forecast_days.append({
+                                    "date": dt_txt,
+                                    "max_temp_c": round(it.get("main", {}).get("temp_max", 0), 1),
+                                    "min_temp_c": round(it.get("main", {}).get("temp_min", 0), 1),
+                                    "condition": it.get("weather", [{}])[0].get("description", "")
+                                })
+                    main_w = data_w.get("main", {})
+                    wind_w = data_w.get("wind", {})
+                    return {
+                        "status": "success",
+                        "city": data_w.get("name", city_clean),
+                        "country": data_w.get("sys", {}).get("country", ""),
+                        "temperature_c": round(main_w.get("temp", 0), 1),
+                        "feels_like_c": round(main_w.get("feels_like", 0), 1),
+                        "condition": data_w.get("weather", [{}])[0].get("description", ""),
+                        "humidity": f"{main_w.get('humidity', 0)}%",
+                        "wind_kph": f"{round(wind_w.get('speed', 0) * 3.6, 1)} km/h",
+                        "forecast": forecast_days[:days] if forecast_days else [],
+                        "provider": "OpenWeatherMap"
+                    }
+        except Exception:
+            pass
+
+    # 2. Tentative avec WeatherAPI si clé fournie
     if settings.WEATHER_API_KEY:
         try:
             url = f"https://api.weatherapi.com/v1/forecast.json?key={settings.WEATHER_API_KEY}&q={city_clean}&days={days}&lang=fr"

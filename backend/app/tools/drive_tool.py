@@ -6,14 +6,36 @@ from app.config import settings
 
 try:
     from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
     GOOGLE_LIBS_AVAILABLE = True
 except ImportError:
     GOOGLE_LIBS_AVAILABLE = False
 
-SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = BACKEND_DIR.parent
+SCOPES = [
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/drive.readonly",
+]
 
-MOCK_DRIVE_DIR = Path("./data/mock_drive")
+MOCK_DRIVE_DIR = (
+    REPO_ROOT / "data" / "mock_drive"
+    if (REPO_ROOT / "data").exists()
+    else BACKEND_DIR / "data" / "mock_drive"
+)
+
+def _find_google_file(filename: str) -> Path:
+    candidates = [
+        Path(filename),
+        REPO_ROOT / filename,
+        BACKEND_DIR / filename,
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
 
 def _init_mock_drive() -> None:
     """Crée les documents de test Google Drive recommandés par l'énoncé."""
@@ -51,12 +73,34 @@ def _get_drive_service():
     if not GOOGLE_LIBS_AVAILABLE:
         return None
 
-    token_path = Path(settings.GOOGLE_TOKEN_FILE)
+    creds = None
+    token_path = _find_google_file(settings.GOOGLE_TOKEN_FILE)
+    secrets_path = _find_google_file(settings.GOOGLE_CLIENT_SECRETS_FILE)
+
     if token_path.exists():
         try:
             creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
-            if creds and creds.valid:
-                return build("drive", "v3", credentials=creds)
+        except Exception:
+            creds = None
+
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+            except Exception:
+                creds = None
+        elif secrets_path.exists():
+            try:
+                flow = InstalledAppFlow.from_client_secrets_file(str(secrets_path), SCOPES)
+                creds = flow.run_local_server(port=0)
+                with open(token_path, "w") as token:
+                    token.write(creds.to_json())
+            except Exception:
+                creds = None
+
+    if creds and creds.valid:
+        try:
+            return build("drive", "v3", credentials=creds)
         except Exception:
             return None
     return None

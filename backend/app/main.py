@@ -3,7 +3,7 @@ import json
 import base64
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -471,6 +471,10 @@ def list_available_tools(user: User = Depends(get_current_user)):
 def health_check():
     """Vérifie le bon fonctionnement du serveur et des intégrations."""
     smtp = smtp_status()
+    has_google_token = (
+        Path(settings.GOOGLE_TOKEN_FILE).exists()
+        or (Path(__file__).resolve().parent.parent.parent / settings.GOOGLE_TOKEN_FILE).exists()
+    )
     return {
         "status": "healthy",
         "agent_name": "X-Finder",
@@ -479,9 +483,16 @@ def health_check():
         "available_models": [m.strip() for m in settings.ALLOWED_MODELS.split(",") if m.strip()],
         "integrations": {
             "tavily": _is_usable_tavily_key(settings.TAVILY_API_KEY),
+            "weather": bool(settings.OPENWEATHER_API_KEY or settings.WEATHER_API_KEY),
+            "weather_provider": (
+                "OpenWeatherMap"
+                if (settings.OPENWEATHER_API_KEY or len(settings.WEATHER_API_KEY) == 32)
+                else ("WeatherAPI" if settings.WEATHER_API_KEY else "Open-Meteo")
+            ),
+            "google_workspace": has_google_token,
             "smtp": smtp,
         },
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 

@@ -5,53 +5,103 @@
 
 # Fichiers d'environnement & secrets
 .env
-.env.local
-.env.*.local
+.env.*
 *.env
+!.env.example
 backend/.env
+backend/.env.*
 
-# Google Workspace OAuth2 Tokens & Credentials (NE JAMAIS COMMITER)
+# Google Workspace OAuth2 Tokens, Certificats & Credentials (NE JAMAIS COMMITER)
 credentials.json
 token.json
 client_secrets.json
 service_account.json
-backend/credentials.json
-backend/token.json
+credentials*.json
+client_secret*.json
+backend/credentials*.json
+backend/token*.json
+backend/client_secret*.json
+backend/service_account*.json
+**/credentials.json
+**/token.json
+**/client_secrets.json
+*.pem
+*.key
+*.cert
 
 # Environnements virtuels Python
 venv/
 .venv/
 env/
+ENV/
 backend/venv/
+backend/.venv/
 
-# Caches Python & Bytecode
+# Caches Python, Bytecode & Tests
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+backend/.pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.cache/
+build/
+*.egg-info/
+.eggs/
 
-# Node.js & Frontend
+# Node.js & Frontend (Vite, npm, yarn, pnpm)
 frontend/node_modules/
+node_modules/
 frontend/.pnp
 frontend/.pnp.js
+frontend/.vite/
+frontend/dist-ssr/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+*.tsbuildinfo
 
-# Bases de données locales & fichiers uploadés
+# Bases de données locales, journaux SQLite & Données privées
 chat.db
+backend/chat.db
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
+*.sqlite3
+
+# Fichiers uploadés & logs d'envois emails (sandbox / réels)
 data/uploads/*
 !data/uploads/.gitkeep
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
 data/email_outbox.json
+backend/data/email_outbox.json
+**/email_outbox.json
+
+# Fichiers de logs & temporaires
+*.log
+logs/
+*.tmp
+*.temp
 
 # Fichiers OS & IDE
 .DS_Store
 Thumbs.db
+desktop.ini
 .vscode/
 .idea/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
+*.bak
+*~

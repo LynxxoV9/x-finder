@@ -91,9 +91,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             value={selectedModel}
             onChange={(e) => onModelChange(e.target.value)}
           >
-            <option value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
             <option value="google/gemini-3.8-flash">Gemini 3.8 Flash</option>
             <option value="anthropic/claude-sonnet-4-5-20250929">Claude 3.5 Sonnet</option>
+            <option value="google/gemini-3.5-flash">Gemini 3.5 Flash</option>
           </select>
         </div>
 

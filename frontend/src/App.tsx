@@ -32,7 +32,7 @@ export const App: React.FC = () => {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [activeDetails, setActiveDetails] = useState<ConversationDetails | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string>('google/gemini-2.5-flash-lite');
+  const [selectedModel, setSelectedModel] = useState<string>('google/gemini-3.8-flash');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isToolsModalOpen, setIsToolsModalOpen] = useState<boolean>(false);
   const [draftRequest, setDraftRequest] = useState<{

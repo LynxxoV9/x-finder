@@ -64,7 +64,7 @@ def analyze_image_intel(image_path_or_base64: str, task: str = "general_osint") 
     )
 
     payload = {
-        "model": "google/gemini-2.5-flash-lite",
+        "model": "google/gemini-3.8-flash",
         "messages": [
             {
                 "role": "user",

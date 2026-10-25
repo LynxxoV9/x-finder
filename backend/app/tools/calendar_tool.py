@@ -15,10 +15,30 @@ try:
 except ImportError:
     GOOGLE_LIBS_AVAILABLE = False
 
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = BACKEND_DIR.parent
+SCOPES = [
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/drive.readonly",
+]
 
-# Stockage local de repli (Mock / Démo sécurisée pour tests enseignants sans identifiants privés)
-MOCK_CALENDAR_FILE = Path("./data/mock_calendar.json")
+# Stockage local de repli (Mock / Démo sécurisée pour tests sans identifiants privés)
+MOCK_CALENDAR_FILE = (
+    REPO_ROOT / "data" / "mock_calendar.json"
+    if (REPO_ROOT / "data").exists()
+    else BACKEND_DIR / "data" / "mock_calendar.json"
+)
+
+def _find_google_file(filename: str) -> Path:
+    candidates = [
+        Path(filename),
+        REPO_ROOT / filename,
+        BACKEND_DIR / filename,
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
 
 def _load_mock_calendar() -> List[Dict[str, Any]]:
     """Charge les événements du calendrier de démonstration si aucun compte Google n'est connecté."""
@@ -63,8 +83,8 @@ def _get_calendar_service():
         return None
 
     creds = None
-    token_path = Path(settings.GOOGLE_TOKEN_FILE)
-    secrets_path = Path(settings.GOOGLE_CLIENT_SECRETS_FILE)
+    token_path = _find_google_file(settings.GOOGLE_TOKEN_FILE)
+    secrets_path = _find_google_file(settings.GOOGLE_CLIENT_SECRETS_FILE)
 
     if token_path.exists():
         try:

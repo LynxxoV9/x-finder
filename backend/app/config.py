@@ -7,11 +7,11 @@ from dotenv import load_dotenv
 ENV_BACKEND = Path(__file__).resolve().parent.parent / ".env"
 ENV_ROOT = Path(__file__).resolve().parent.parent.parent / ".env"
 
-if ENV_BACKEND.exists():
-    load_dotenv(ENV_BACKEND)
-elif ENV_ROOT.exists():
+if ENV_ROOT.exists():
     load_dotenv(ENV_ROOT)
-else:
+if ENV_BACKEND.exists():
+    load_dotenv(ENV_BACKEND, override=False)
+if not ENV_ROOT.exists() and not ENV_BACKEND.exists():
     load_dotenv()
 
 class Settings(BaseSettings):
@@ -20,16 +20,16 @@ class Settings(BaseSettings):
     BASE_URL: str = os.getenv("BASE_URL", "https://api.rodiumai.io/v1").rstrip("/")
     ALLOWED_MODELS: str = os.getenv(
         "ALLOWED_MODELS",
-        "google/gemini-2.5-flash-lite,google/gemini-3.8-flash,anthropic/claude-sonnet-4-5-20250929",
+        "google/gemini-3.8-flash,anthropic/claude-sonnet-4-5-20250929,google/gemini-3.5-flash",
     )
-    DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", "google/gemini-2.5-flash-lite")
+    DEFAULT_MODEL: str = os.getenv("DEFAULT_MODEL", "google/gemini-3.8-flash")
 
     # Moteur de recherche web
     TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
 
-    # Météo
+    # Météo (OpenWeatherMap et WeatherAPI)
     WEATHER_API_KEY: str = os.getenv("WEATHER_API_KEY", "")
-    OPENWEATHER_API_KEY: str = os.getenv("OPENWEATHER_API_KEY", "")
+    OPENWEATHER_API_KEY: str = os.getenv("OPENWEATHER_API_KEY", os.getenv("WEATHER_API_KEY", ""))
 
     # Google Workspace (Calendar & Drive)
     GOOGLE_CLIENT_SECRETS_FILE: str = os.getenv("GOOGLE_CLIENT_SECRETS_FILE", "credentials.json")
@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
     SMTP_USER: str = os.getenv("SMTP_USER", "bfe9be001@smtp-brevo.com")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
-    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", os.getenv("EMAIL_SENDER", ""))
     SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
 
     # Base de données & RAG

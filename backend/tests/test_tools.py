@@ -9,7 +9,7 @@ from app.tools.web_search import _is_cyber_authority, _normalize_results, search
 from app.agent.prompts import build_system_prompt
 from app.agent.registry import _attach_grounding
 from app.tools.weather import get_weather
-from app.tools.calendar_tool import list_events, search_events, create_event
+from app.tools.calendar_tool import list_events, search_events, create_event, delete_event
 from app.tools.email_tool import prepare_email_draft
 from app.tools.notion_tool import search_notion, read_notion_page
 from app.tools.drive_tool import search_drive_files, read_drive_file_content
@@ -112,6 +112,12 @@ def test_calendar():
         description="Test unitaire X-Finder"
     )
     assert created["status"] == "success"
+
+    # Nettoyage de l'événement de test pour préserver le mock
+    evt_id = created.get("event_id") or created.get("event", {}).get("id")
+    if evt_id:
+        deleted = delete_event(evt_id)
+        assert deleted["status"] == "success"
 
 # Test 4 : Email Draft & Confirmation de Sécurité
 def test_email_draft_requires_confirmation():
