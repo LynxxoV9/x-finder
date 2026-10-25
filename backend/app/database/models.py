@@ -12,7 +12,7 @@ class Conversation(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     title = Column(String(255), default="Nouvelle mission X-Finder")
-    model_used = Column(String(100), default="google/gemini-2.5-flash-lite")
+    model_used = Column(String(100), default="google/gemini-3.8-flash")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

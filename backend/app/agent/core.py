@@ -25,7 +25,8 @@ async def run_agent_turn(
     Exécute un tour de conversation avec l'agent X-Finder.
     Prend en charge la sélection dynamique d'outils, le multi-tool chaining et les entrées multimodales.
     """
-    selected_model = model or settings.DEFAULT_MODEL
+    allowed_models = [m.strip() for m in settings.ALLOWED_MODELS.split(",") if m.strip()]
+    selected_model = model if (model and model in allowed_models) else settings.DEFAULT_MODEL
     if not settings.RODIUMAI_API_KEY:
         return {
             "status": "error",
@@ -132,9 +133,21 @@ async def run_agent_turn(
                 break
 
             if res.status_code != 200:
-                final_text_content = f"Erreur du service LLM ({res.status_code}) : {res.text[:200]}"
-                final_status = "error"
-                break
+                if res.status_code == 404 and selected_model != settings.DEFAULT_MODEL:
+                    selected_model = settings.DEFAULT_MODEL
+                    payload["model"] = selected_model
+                    try:
+                        res = await client.post(
+                            f"{settings.BASE_URL}/chat/completions",
+                            headers=headers,
+                            json=payload
+                        )
+                    except Exception:
+                        pass
+                if res.status_code != 200:
+                    final_text_content = f"Erreur du service LLM ({res.status_code}) : {res.text[:200]}"
+                    final_status = "error"
+                    break
 
             try:
                 response_data = res.json()

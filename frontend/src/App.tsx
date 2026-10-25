@@ -28,6 +28,12 @@ import { Language, translations } from './i18n/translations';
 import { Shield } from 'lucide-react';
 import './App.css';
 
+const VALID_MODELS = [
+  'google/gemini-3.8-flash',
+  'anthropic/claude-sonnet-4-5-20250929',
+  'google/gemini-3.5-flash',
+];
+
 export const App: React.FC = () => {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -128,7 +134,11 @@ export const App: React.FC = () => {
       setActiveId(id);
       const details = await fetchConversationDetails(id);
       setActiveDetails(details);
-      if (details.model) setSelectedModel(details.model);
+      if (details.model && VALID_MODELS.includes(details.model)) {
+        setSelectedModel(details.model);
+      } else {
+        setSelectedModel('google/gemini-3.8-flash');
+      }
     } catch (e) {
       console.error(e);
     }

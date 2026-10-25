@@ -222,10 +222,12 @@ def create_conversation(
     user: User = Depends(require_csrf),
 ):
     """Crée une nouvelle session de conversation."""
+    allowed_models = [m.strip() for m in settings.ALLOWED_MODELS.split(",") if m.strip()]
+    model_to_use = req.model if (req.model and req.model in allowed_models) else settings.DEFAULT_MODEL
     conv = Conversation(
         user_id=user.id,
         title=req.title,
-        model_used=req.model or settings.DEFAULT_MODEL
+        model_used=model_to_use
     )
     db.add(conv)
     db.commit()
@@ -338,26 +340,34 @@ async def chat_with_agent(
     Déclenche la sélection dynamique d'outils, la boucle de raisonnement et retourne la réponse consolidée.
     """
     conv_id = req.conversation_id
+    allowed_models = [m.strip() for m in settings.ALLOWED_MODELS.split(",") if m.strip()]
+    model_to_use = req.model if (req.model and req.model in allowed_models) else settings.DEFAULT_MODEL
+
     if not conv_id:
         # Création automatique de la conversation avec titre dérivé du premier message
         preview = req.message[:45] + ("..." if len(req.message) > 45 else "")
         new_conv = Conversation(
             user_id=user.id,
             title=preview or "Mission X-Finder",
-            model_used=req.model or settings.DEFAULT_MODEL,
+            model_used=model_to_use,
         )
         db.add(new_conv)
         db.commit()
         db.refresh(new_conv)
         conv_id = new_conv.id
-    elif not db.query(Conversation).filter_by(id=conv_id, user_id=user.id).first():
-        raise HTTPException(status_code=404, detail="Conversation introuvable.")
+    else:
+        conv = db.query(Conversation).filter_by(id=conv_id, user_id=user.id).first()
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversation introuvable.")
+        if conv.model_used not in allowed_models or (req.model and req.model in allowed_models and conv.model_used != req.model):
+            conv.model_used = model_to_use
+            db.commit()
 
     result = await run_agent_turn(
         conversation_id=conv_id,
         user_prompt=req.message,
         db=db,
-        model=req.model,
+        model=model_to_use,
         image_base64=req.image_base64
     )
     return result
