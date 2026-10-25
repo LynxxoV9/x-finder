@@ -175,62 +175,12 @@ run.bat
 python run.py
 ```
 
----
+### Déploiement
 
-### Accès à l'application
+X-Finder utilise trois services : le backend **FastAPI** sur [Render](https://render.com/), le frontend **Vite** sur [Cloudflare Pages](https://pages.cloudflare.com/) et la base **PostgreSQL** sur [Neon](https://neon.com/). Le fichier `render.yaml` décrit la configuration du backend. Configurez `DATABASE_URL` avec l'URL Neon, `FRONTEND_ORIGIN` et `PUBLIC_BASE_URL` avec le domaine Cloudflare Pages. Sur Cloudflare Pages, définissez `BACKEND_URL` avec l'URL du service Render.
 
-Une fois le serveur lancé :
-- 🌐 **Interface Web de Chat** : [http://localhost:8000](http://localhost:8000)
-- 📖 **Documentation Swagger API** : [http://localhost:8000/docs](http://localhost:8000/docs)
--  **Vérification de santé (Health Check)** : [http://localhost:8000/api/health](http://localhost:8000/api/health)
+L'envoi d'emails utilise **Brevo SMTP** : `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USE_TLS=true` et `SMTP_USER=bfe9be001@smtp-brevo.com`. Dans les variables d'environnement Render, définissez `SMTP_PASSWORD` comme secret avec votre clé SMTP Brevo et `SMTP_FROM_EMAIL` avec une adresse d'expédition vérifiée dans Brevo. Ne publiez jamais la clé dans le dépôt. Après configuration, redéployez le backend et vérifiez `integrations.smtp.configured` sur `/api/health`.
 
----
-
-### Déploiement sur Vercel (GitHub + PostgreSQL) :
-1. Créez une base PostgreSQL persistante,  sur Supabase, puis importez le dépôt `LynxxoV9/x-finder` dans Vercel en gardant la racine du dépôt comme répertoire du projet.
-2. Dans **Settings → Environment Variables**, ajoutez `DATABASE_URL` (URL PostgreSQL), `RODIUMAI_API_KEY` et les autres clés d'intégration nécessaires. Ne mettez aucun secret dans Git. SQLite reste réservé au développement local.
-3. Déployez. Vercel construit le frontend et l'API FastAPI ; avec GitHub connecté, chaque push sur la branche de production déclenche un nouveau déploiement. Les autres branches créent des prévisualisations.
-
-Les images téléversées par l'API sont traitées en mémoire ; aucun stockage de fichiers local n'est requis. Configurez les variables de base de données dans chaque environnement Vercel utilisé (Production, Preview et Development).
-
-### Déploiement gratuit recommandé (Cloudflare Pages + Render + Neon)
-
-Le frontend statique est hébergé sur Cloudflare Pages. L'API FastAPI tourne sur Render et utilise une base PostgreSQL Neon persistante. Le relais `frontend/functions/api/[[path]].js` transmet `/api/*` au backend : le navigateur garde ainsi une seule origine pour l'API, les cookies de session et les callbacks OAuth. Ce montage évite de porter le backend actuel vers le runtime Workers.
-
-> Les offres gratuites ont des limites et ne constituent pas une garantie de disponibilité. Render Free endort le service après 15 minutes sans trafic ; son réveil peut prendre environ une minute. Ne mets pas de données sensibles ou critiques dans une application hobby sans sauvegardes et protection anti-abus.
-
-1. **Créer la base Neon** : crée un projet PostgreSQL sur [Neon](https://neon.com/), copie sa chaîne de connexion (avec SSL) et garde-la privée.
-2. **Créer le backend Render** : connecte le dépôt GitHub à [Render](https://render.com/) via **New → Blueprint** et sélectionne `render.yaml`. Lors de la configuration, renseigne :
-   - `DATABASE_URL` : chaîne PostgreSQL Neon ;
-   - `FRONTEND_ORIGIN` et `PUBLIC_BASE_URL` : l’origine Pages finale, par exemple `https://x-finder.pages.dev` (sans slash final) ;
-   - `RODIUMAI_API_KEY` : clé LLM.
-
-   Le manifeste génère `SECRET_KEY`. Attends le déploiement puis vérifie `https://<service>.onrender.com/api/health`.
-
-   **Activer la recherche Tavily et l’envoi SMTP** : dans le service Render, ouvre **Environment** et ajoute les variables ci-dessous. Elles doivent être configurées sur Render indépendamment de ton fichier `.env` local :
-
-   | Variable | Valeur |
-   |---|---|
-   | `TAVILY_API_KEY` | Ta clé API Tavily |
-   | `SMTP_HOST` | `smtp.gmail.com` |
-   | `SMTP_PORT` | `587` |
-   | `SMTP_USE_TLS` | `true` |
-   | `SMTP_USER` | `flowoliv@gmail.com` |
-   | `SMTP_FROM_EMAIL` | `flowoliv@gmail.com` |
-   | `SMTP_PASSWORD` | Le mot de passe d’application Google, pas le mot de passe habituel du compte |
-
-   Enregistre les variables et redéploie le service (ou déclenche un redémarrage). Ne colle jamais ces secrets dans le dépôt ni dans un message. Vérifie ensuite `https://<service>.onrender.com/api/health` : `integrations.tavily` doit être `true` et `integrations.smtp.configured` doit être `true`. Si SMTP reste désactivé, contrôle que les trois variables SMTP utilisateur, expéditeur et mot de passe sont toutes renseignées sur le service Render.
-
-3. **Créer le frontend Cloudflare Pages** : dans Cloudflare, importe le dépôt sous **Workers & Pages → Create → Pages → Connect to Git**. Paramètres de build :
-   - répertoire racine : `frontend` ;
-   - commande : `npm run build` ;
-   - répertoire de sortie : `dist`.
-
-   Dans **Settings → Variables and Secrets**, ajoute `BACKEND_URL` avec l’URL Render, par exemple `https://x-finder-api.onrender.com` (sans slash final). Fais un nouveau déploiement après l’ajout.
-4. **Mettre les domaines en accord** : utilise exactement le domaine Pages final dans `FRONTEND_ORIGIN` et `PUBLIC_BASE_URL` sur Render. Pour OAuth, déclare chez Google/GitHub les URL de callback `https://<domaine-pages>/api/auth/google/callback` et/ou `https://<domaine-pages>/api/auth/github/callback`, puis ajoute les identifiants correspondants dans les variables Render.
-5. **Vérifier** : ouvre le domaine Pages, crée un compte, recharge la page pour vérifier la session, puis crée une conversation. Contrôle également `/api/health` sur Pages et l’absence d’erreurs dans les journaux Render/Cloudflare.
-
-Ajoute les clés optionnelles (Tavily, Notion, SMTP, Google Workspace) uniquement si tu actives ces intégrations. Ne committe jamais les valeurs des secrets. L’offre gratuite Render utilise un système de fichiers éphémère et peut s'endormir ; X-Finder utilise PostgreSQL pour préserver les comptes et conversations, et traite les images téléversées en mémoire.
 
 
 *Développé avec passion par lynxxoven pour l'intelligence artificielle agentique et la cybersécurité.*
