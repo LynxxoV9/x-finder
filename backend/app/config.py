@@ -40,9 +40,9 @@ class Settings(BaseSettings):
     NOTION_DEFAULT_PARENT_PAGE_ID: str = os.getenv("NOTION_DEFAULT_PARENT_PAGE_ID", "")
 
     # Envoi email SMTP
-    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
-    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_USER: str = os.getenv("SMTP_USER", "bfe9be001@smtp-brevo.com")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
     SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "")
     SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() == "true"

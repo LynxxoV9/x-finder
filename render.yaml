@@ -22,3 +22,13 @@ services:
         sync: false
       - key: RODIUMAI_API_KEY
         sync: false
+      - key: SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USE_TLS
+        value: "true"
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        value: flowoliv@gmail.com

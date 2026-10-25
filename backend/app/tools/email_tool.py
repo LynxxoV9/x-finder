@@ -13,10 +13,10 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def smtp_status() -> Dict[str, Any]:
-    """État de la config SMTP (sans exposer le mot de passe)."""
+    """État de la configuration SMTP sans exposer la clé SMTP."""
     user = (settings.SMTP_USER or "").strip()
     password = (settings.SMTP_PASSWORD or "").strip()
-    from_email = (settings.SMTP_FROM_EMAIL or user or "").strip()
+    from_email = (settings.SMTP_FROM_EMAIL or "").strip()
     ready = bool(user and password and from_email)
     return {
         "configured": ready,
@@ -29,8 +29,8 @@ def smtp_status() -> Dict[str, Any]:
         "hint": None
         if ready
         else (
-            "SMTP_PASSWORD manquant. Pour Gmail, créez un mot de passe d'application "
-            "et renseignez SMTP_USER / SMTP_FROM_EMAIL / SMTP_PASSWORD dans .env"
+            "Configurez SMTP_USER, la clé SMTP dans SMTP_PASSWORD et l'adresse "
+            "d'expéditeur validée par Brevo dans SMTP_FROM_EMAIL."
         ),
     }
 
@@ -149,8 +149,8 @@ def send_email_confirmed(to_email: str, subject: str, body: str) -> Dict[str, An
                 "message": f"Échec SMTP : {type(e).__name__}: {e}",
                 "recipient": to_clean,
                 "hint": (
-                    "Vérifiez SMTP_PASSWORD (mot de passe d'application Gmail), "
-                    "SMTP_USER=lynxxoven@gmail.com et que la validation en 2 étapes est active."
+                    "Vérifiez la clé SMTP, l'identifiant SMTP et que SMTP_FROM_EMAIL "
+                    "correspond à un expéditeur validé dans Brevo."
                 ),
             }
 
@@ -159,9 +159,9 @@ def send_email_confirmed(to_email: str, subject: str, body: str) -> Dict[str, An
         "status": "warning",
         "mode": "sandbox_simulation",
         "message": (
-            f"Aucun envoi réel : SMTP non configuré (password manquant). "
+            "Aucun envoi réel : configuration SMTP incomplète. "
             f"Brouillon archivé dans data/email_outbox.json pour {to_clean}. "
-            "Renseignez SMTP_PASSWORD dans .env pour activer Gmail."
+            "Configurez SMTP_USER, SMTP_PASSWORD et SMTP_FROM_EMAIL pour activer l'envoi Brevo."
         ),
         "recipient": to_clean,
         "subject": subject,

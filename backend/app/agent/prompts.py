@@ -50,7 +50,7 @@ SYSTEM_PROMPT = """Tu es X-Finder, un agent d'action autonome, expert en OSINT, 
 ### Email
 Si l'utilisateur demande d'envoyer un résultat à un mail :
 1) outils → 2) synthèse UNIQUEMENT factuelle avec URLs → 3) `prepare_email_draft` → 4) `send_email_confirmed` seulement après confirmation explicite.
-Expéditeur SMTP : lynxxoven@gmail.com (si mot de passe d'application configuré).
+Utilise l'expéditeur SMTP configuré dans l'outil ; ne suppose jamais une adresse fixe.
 
 ### Sécurité
 Confirmations obligatoires pour email et suppressions. Enchaîne tous les outils demandés.

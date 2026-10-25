@@ -212,13 +212,97 @@ def test_osint_graph_generation():
     assert "👤" not in res["mermaid_chart"]
 
 
-def test_smtp_status_and_sandbox_send():
+def test_smtp_status_requires_brevo_key_and_verified_sender(monkeypatch):
+    from app.tools import email_tool
+
+    monkeypatch.setattr(email_tool.settings, "SMTP_HOST", "smtp-relay.brevo.com")
+    monkeypatch.setattr(email_tool.settings, "SMTP_PORT", 587)
+    monkeypatch.setattr(email_tool.settings, "SMTP_USER", "login@smtp-brevo.com")
+    monkeypatch.setattr(email_tool.settings, "SMTP_PASSWORD", "")
+    monkeypatch.setattr(email_tool.settings, "SMTP_FROM_EMAIL", "")
+
     status = smtp_status()
-    assert "configured" in status
-    assert status.get("user") == "lynxxoven@gmail.com"
-    assert status.get("from_email") == "lynxxoven@gmail.com"
-    # Sans mot de passe : pas de faux succès silencieux
-    if not status["configured"]:
-        sent = send_email_confirmed("flowoliv@gmail.com", "Test", "Corps test")
-        assert sent["status"] == "warning"
-        assert sent["mode"] == "sandbox_simulation"
+
+    assert status["configured"] is False
+    assert status["host"] == "smtp-relay.brevo.com"
+    assert status["user"] == "login@smtp-brevo.com"
+    assert status["from_email"] is None
+    assert "SMTP_PASSWORD" in status["hint"]
+    assert "SMTP_FROM_EMAIL" in status["hint"]
+
+
+def test_brevo_smtp_send_uses_starttls_and_verified_sender(monkeypatch):
+    from app.tools import email_tool
+
+    monkeypatch.setattr(email_tool.settings, "SMTP_HOST", "smtp-relay.brevo.com")
+    monkeypatch.setattr(email_tool.settings, "SMTP_PORT", 587)
+    monkeypatch.setattr(email_tool.settings, "SMTP_USER", "login@smtp-brevo.com")
+    monkeypatch.setattr(email_tool.settings, "SMTP_PASSWORD", "test-smtp-key")
+    monkeypatch.setattr(email_tool.settings, "SMTP_FROM_EMAIL", "verified@example.com")
+    monkeypatch.setattr(email_tool.settings, "SMTP_USE_TLS", True)
+    monkeypatch.setattr(email_tool, "_log_sent_email", lambda *args, **kwargs: None)
+
+    class FakeSMTP:
+        def __init__(self, host, port, timeout):
+            self.host = host
+            self.port = port
+            self.timeout = timeout
+            self.calls = []
+            self.message = None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def ehlo(self):
+            self.calls.append("ehlo")
+
+        def starttls(self):
+            self.calls.append("starttls")
+
+        def login(self, user, password):
+            self.calls.append(("login", user, password))
+
+        def send_message(self, message):
+            self.message = message
+
+    smtp_clients = []
+
+    def fake_smtp(*args, **kwargs):
+        client = FakeSMTP(*args, **kwargs)
+        smtp_clients.append(client)
+        return client
+
+    monkeypatch.setattr(email_tool.smtplib, "SMTP", fake_smtp)
+
+    result = send_email_confirmed("destinataire@example.net", "Objet", "Message")
+
+    assert result["status"] == "success"
+    assert len(smtp_clients) == 1
+    client = smtp_clients[0]
+    assert (client.host, client.port, client.timeout) == (
+        "smtp-relay.brevo.com", 587, 20
+    )
+    assert client.calls == [
+        "ehlo",
+        "starttls",
+        "ehlo",
+        ("login", "login@smtp-brevo.com", "test-smtp-key"),
+    ]
+    assert client.message["From"] == "verified@example.com"
+    assert client.message["To"] == "destinataire@example.net"
+
+
+def test_smtp_missing_configuration_uses_sandbox(monkeypatch, tmp_path):
+    from app.tools import email_tool
+
+    monkeypatch.setattr(email_tool.settings, "SMTP_PASSWORD", "")
+    monkeypatch.setattr(email_tool.settings, "SMTP_FROM_EMAIL", "")
+    monkeypatch.setattr(email_tool, "OUTBOX_LOG_FILE", tmp_path / "outbox.json")
+
+    sent = send_email_confirmed("destinataire@example.net", "Objet", "Message")
+
+    assert sent["status"] == "warning"
+    assert sent["mode"] == "sandbox_simulation"

@@ -142,7 +142,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "send_email_confirmed",
-            "description": "Expédition SMTP réelle après confirmation explicite. Échoue clairement si SMTP_PASSWORD absent (pas de faux succès silencieux).",
+            "description": "Expédition SMTP via Brevo après confirmation explicite. Nécessite SMTP_USER, SMTP_PASSWORD et SMTP_FROM_EMAIL configurés ; ne simule jamais un envoi réussi.",
             "parameters": {
                 "type": "object",
                 "properties": {
