@@ -76,7 +76,7 @@ class Message(Base):
     role = Column(String(50), nullable=False) # user, assistant, system, tool
     content = Column(Text, nullable=True)
     tool_calls = Column(Text, nullable=True) # Stocké au format JSON string
-    tool_call_id = Column(String(100), nullable=True) # ID du tool_call si role == tool
+    tool_call_id = Column(Text, nullable=True) # ID du tool_call si role == tool
     name = Column(String(100), nullable=True) # Nom de la fonction si role == tool
     image_url = Column(Text, nullable=True) # Image jointe en base64 ou URL
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -5,6 +5,7 @@ import asyncio
 import json
 import uuid
 from urllib.parse import parse_qs, urlparse
+from sqlalchemy import Text
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -91,6 +92,7 @@ def test_conversation_details_handles_truncated_tool_result(client):
 def test_agent_persists_complete_tool_result(client, monkeypatch):
     from app.agent import core
 
+    assert isinstance(Message.__table__.c.tool_call_id.type, Text)
     monkeypatch.setattr(core.settings, "RODIUMAI_API_KEY", "test-llm-key")
     conv_id = client.post("/api/conversations", json={}).json()["conversation"]["id"]
     large_result = {"status": "success", "results": ["x" * 4000]}
@@ -100,7 +102,7 @@ def test_agent_persists_complete_tool_result(client, monkeypatch):
                 "message": {
                     "content": None,
                     "tool_calls": [{
-                        "id": "call-1",
+                        "id": "call-" + ("x" * 400),
                         "function": {"name": "search_web", "arguments": '{"query":"test"}'},
                     }],
                 }
@@ -146,6 +148,11 @@ def test_agent_persists_complete_tool_result(client, monkeypatch):
         assert result["status"] == "success"
         assert len(execution.output_result) > 3000
         assert execution.output_result == json.dumps(large_result, ensure_ascii=False)
+        tool_message = db.query(Message).filter(
+            Message.conversation_id == conv_id,
+            Message.role == "tool",
+        ).one()
+        assert len(tool_message.tool_call_id) == 405
 
     details = client.get(f"/api/conversations/{conv_id}")
     assert details.status_code == 200

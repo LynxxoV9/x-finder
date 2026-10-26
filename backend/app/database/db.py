@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import Text, create_engine, inspect
 from sqlalchemy.orm import sessionmaker, Session
 from app.config import settings
 from app.database.models import Base
@@ -30,6 +30,16 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Initialisation des tables de la base de données
 def init_db():
     Base.metadata.create_all(bind=engine)
+    if engine.dialect.name == "postgresql":
+        message_columns = inspect(engine).get_columns("messages")
+        tool_call_id = next(
+            column for column in message_columns if column["name"] == "tool_call_id"
+        )
+        if not isinstance(tool_call_id["type"], Text):
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "ALTER TABLE messages ALTER COLUMN tool_call_id TYPE TEXT"
+                )
     columns = {column["name"] for column in inspect(engine).get_columns("conversations")}
     if "user_id" not in columns:
         with engine.begin() as connection:
