@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
     SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", os.getenv("EMAIL_SENDER", ""))
     SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+    BREVO_API_KEY: str = os.getenv("BREVO_API_KEY", "")
 
     # Base de données & RAG
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./chat.db")

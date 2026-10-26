@@ -416,7 +416,8 @@ def respond_to_confirmation(
         action_result = send_email_confirmed(
             to_email=payload.get("to"),
             subject=payload.get("subject"),
-            body=payload.get("body")
+            body=payload.get("body"),
+            calendar_event=payload.get("calendar_event"),
         )
     elif conf.action_type == "delete_calendar_event":
         action_result = delete_event(event_id=payload.get("event_id"))

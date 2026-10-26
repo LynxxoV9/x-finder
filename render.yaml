@@ -42,3 +42,5 @@ services:
         sync: false
       - key: SMTP_FROM_EMAIL
         value: flowoliv@gmail.com
+      - key: BREVO_API_KEY
+        sync: false

@@ -3,7 +3,7 @@ from typing import Dict, Any, Callable
 from app.tools.web_search import search_web
 from app.tools.weather import get_weather
 from app.tools.calendar_tool import list_events, search_events, create_event, delete_event
-from app.tools.email_tool import prepare_email_draft, send_email_confirmed
+from app.tools.email_tool import prepare_email_draft
 from app.tools.notion_tool import search_notion, read_notion_page, create_notion_page, append_to_notion_page
 from app.tools.drive_tool import search_drive_files, read_drive_file_content
 from app.tools.osint_tools import (
@@ -130,25 +130,14 @@ TOOL_DEFINITIONS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "to_email": {"type": "string", "description": "Adresse email du destinataire (ex: flowoliv@gmail.com)"},
+                    "to_email": {"type": "string", "description": "Une ou plusieurs adresses email séparées par des virgules; chaque destinataire reçoit un email individuel"},
                     "subject": {"type": "string", "description": "Objet de l'email"},
-                    "body": {"type": "string", "description": "Contenu complet : rapport synthétique avec sources/URLs réelles"}
-                },
-                "required": ["to_email", "subject", "body"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "send_email_confirmed",
-            "description": "Expédition SMTP via Brevo après confirmation explicite. Nécessite SMTP_USER, SMTP_PASSWORD et SMTP_FROM_EMAIL configurés ; ne simule jamais un envoi réussi.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "to_email": {"type": "string", "description": "Adresse email du destinataire"},
-                    "subject": {"type": "string", "description": "Objet"},
-                    "body": {"type": "string", "description": "Corps du message"}
+                    "body": {"type": "string", "description": "Contenu complet : rapport synthétique avec sources/URLs réelles"},
+                    "event_summary": {"type": "string", "description": "Titre de l'événement pour créer une pièce jointe invitation.ics"},
+                    "event_start": {"type": "string", "description": "Début ISO avec fuseau, ex. 2026-10-27T20:00:00+00:00"},
+                    "event_end": {"type": "string", "description": "Fin ISO avec fuseau, ex. 2026-10-27T22:00:00+00:00"},
+                    "event_description": {"type": "string", "description": "Description facultative de l'événement"},
+                    "event_location": {"type": "string", "description": "Lieu ou URL de réunion facultatif"},
                 },
                 "required": ["to_email", "subject", "body"]
             }
@@ -413,7 +402,6 @@ FUNCTION_MAP: Dict[str, Callable] = {
     "create_calendar_event": create_event,
     "delete_calendar_event": delete_event,
     "prepare_email_draft": prepare_email_draft,
-    "send_email_confirmed": send_email_confirmed,
     "search_notion": search_notion,
     "read_notion_page": read_notion_page,
     "create_notion_page": create_notion_page,

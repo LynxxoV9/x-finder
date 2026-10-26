@@ -312,3 +312,117 @@ def test_smtp_missing_configuration_uses_sandbox(monkeypatch, tmp_path):
 
     assert sent["status"] == "warning"
     assert sent["mode"] == "sandbox_simulation"
+
+
+def test_brevo_api_sends_separate_messages_per_recipient(monkeypatch):
+    from app.tools import email_tool
+
+    monkeypatch.setattr(email_tool.settings, "BREVO_API_KEY", "test-api-key")
+    monkeypatch.setattr(email_tool.settings, "SMTP_FROM_EMAIL", "verified@example.com")
+    monkeypatch.setattr(email_tool, "_log_sent_email", lambda *args, **kwargs: None)
+
+    requests = []
+
+    class FakeResponse:
+        status_code = 201
+
+    def fake_post(url, **kwargs):
+        requests.append((url, kwargs))
+        return FakeResponse()
+
+    monkeypatch.setattr(email_tool.httpx, "post", fake_post)
+
+    result = send_email_confirmed(
+        "first@example.net, second@example.net",
+        "Subject",
+        "Message",
+        calendar_event={
+            "summary": "Team meeting",
+            "start": "2026-10-27T20:00:00+00:00",
+            "end": "2026-10-27T22:00:00+00:00",
+            "description": "Agenda",
+            "location": "Online",
+        },
+    )
+
+    assert result["status"] == "success"
+    assert result["mode"] == "brevo_api"
+    assert len(requests) == 2
+    assert all(url == "https://api.brevo.com/v3/smtp/email" for url, _ in requests)
+    assert [kwargs["json"]["to"] for _, kwargs in requests] == [
+        [{"email": "first@example.net"}],
+        [{"email": "second@example.net"}],
+    ]
+    assert all(kwargs["headers"]["api-key"] == "test-api-key" for _, kwargs in requests)
+    import base64
+    invitation = base64.b64decode(requests[0][1]["json"]["attachment"][0]["content"]).decode()
+    assert "SUMMARY:Team meeting" in invitation
+    assert "DTSTART:20261027T200000Z" in invitation
+    assert requests[0][1]["json"]["attachment"][0]["name"] == "invitation.ics"
+
+
+def test_email_draft_requires_timezone_for_calendar_invitation():
+    draft = prepare_email_draft(
+        "invitee@example.net",
+        "Meeting",
+        "Please add this to your calendar.",
+        event_summary="Meeting",
+        event_start="2026-10-27T20:00:00",
+        event_end="2026-10-27T22:00:00",
+    )
+
+    assert draft["status"] == "need_info"
+    assert draft["missing_field"] == "event_details"
+
+
+def test_email_draft_carries_invitation_details_for_individual_recipients():
+    draft = prepare_email_draft(
+        "first@example.net, second@example.net",
+        "Invitation",
+        "Please add this event to your calendar.",
+        event_summary="Team meeting",
+        event_start="2026-10-27T20:00:00+00:00",
+        event_end="2026-10-27T22:00:00+00:00",
+        event_location="Online",
+    )
+
+    assert draft["status"] == "draft_ready"
+    assert draft["requires_confirmation"] is True
+    assert draft["draft"]["to"] == ["first@example.net", "second@example.net"]
+    assert draft["draft"]["calendar_event"]["summary"] == "Team meeting"
+
+
+def test_calendar_production_does_not_claim_mock_events_are_live(monkeypatch):
+    from app.tools import calendar_tool
+
+    monkeypatch.setattr(calendar_tool.settings, "ENVIRONMENT", "production")
+    monkeypatch.setattr(calendar_tool, "_get_calendar_service", lambda: None)
+
+    def fail_mock():
+        raise AssertionError("production must not use mock data")
+
+    monkeypatch.setattr(calendar_tool, "_load_mock_calendar", fail_mock)
+
+    result = create_event("Meeting", "2026-10-27T10:00:00Z")
+
+    assert result["status"] == "error"
+    assert "email" in result["message"]
+
+
+def test_calendar_does_not_start_interactive_oauth_on_production(monkeypatch, tmp_path):
+    from app.tools import calendar_tool
+
+    secrets_file = tmp_path / "credentials.json"
+    secrets_file.write_text("{}", encoding="utf-8")
+    token_file = tmp_path / "token.json"
+    monkeypatch.setattr(calendar_tool.settings, "ENVIRONMENT", "production")
+    monkeypatch.setattr(calendar_tool.settings, "GOOGLE_TOKEN_FILE", str(token_file))
+    monkeypatch.setattr(calendar_tool.settings, "GOOGLE_CLIENT_SECRETS_FILE", str(secrets_file))
+    monkeypatch.setattr(calendar_tool, "GOOGLE_LIBS_AVAILABLE", True)
+
+    def fail_interactive_oauth(*args, **kwargs):
+        raise AssertionError("interactive OAuth must not run")
+
+    monkeypatch.setattr(calendar_tool.InstalledAppFlow, "from_client_secrets_file", fail_interactive_oauth)
+
+    assert calendar_tool._get_calendar_service() is None

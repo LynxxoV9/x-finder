@@ -43,8 +43,20 @@ export const ConfirmationCard: React.FC<ConfirmationCardProps> = ({
           flexDirection: 'column',
           gap: '4px'
         }}>
-          {confirmation.payload.to && <div><strong>{lang === 'fr' ? 'Destinataire :' : 'Recipient:'}</strong> {confirmation.payload.to}</div>}
+          {confirmation.payload.to && <div><strong>{lang === 'fr' ? 'Destinataire :' : 'Recipient:'}</strong> {Array.isArray(confirmation.payload.to) ? confirmation.payload.to.join(', ') : confirmation.payload.to}</div>}
           {confirmation.payload.subject && <div><strong>{lang === 'fr' ? 'Objet :' : 'Subject:'}</strong> {confirmation.payload.subject}</div>}
+          {confirmation.payload.calendar_event && (
+            <div>
+              <strong>{lang === 'fr' ? 'Invitation agenda :' : 'Calendar invite:'}</strong>{' '}
+              {confirmation.payload.calendar_event.summary} — {confirmation.payload.calendar_event.start} → {confirmation.payload.calendar_event.end}
+              <div>{lang === 'fr' ? 'Pièce jointe .ics à ajouter manuellement.' : 'An .ics attachment to add manually.'}</div>
+            </div>
+          )}
+          {confirmation.payload.body && (
+            <div style={{ whiteSpace: 'pre-wrap', maxHeight: '180px', overflowY: 'auto' }}>
+              <strong>{lang === 'fr' ? 'Message :' : 'Message:'}</strong> {confirmation.payload.body}
+            </div>
+          )}
           {confirmation.payload.event_id && <div><strong>{lang === 'fr' ? 'Événement ID :' : 'Event ID:'}</strong> {confirmation.payload.event_id}</div>}
         </div>
       )}

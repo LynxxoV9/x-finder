@@ -45,6 +45,7 @@ def test_list_tools(client):
     assert "get_weather" in tool_names
     assert "list_calendar_events" in tool_names
     assert "prepare_email_draft" in tool_names
+    assert "send_email_confirmed" not in tool_names
     assert "search_notion" in tool_names
     assert "search_drive_files" in tool_names
 

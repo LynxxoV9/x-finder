@@ -22,10 +22,15 @@ export interface PendingConfirmationItem {
   action_type: string;
   description: string;
   payload: {
-    to?: string;
+    to?: string | string[];
     subject?: string;
     body?: string;
     event_id?: string;
+    calendar_event?: {
+      summary: string;
+      start: string;
+      end: string;
+    };
     [key: string]: any;
   };
 }

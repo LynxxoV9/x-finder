@@ -77,6 +77,18 @@ def _save_mock_calendar(events: List[Dict[str, Any]]) -> None:
     MOCK_CALENDAR_FILE.write_text(json.dumps(events, indent=2), encoding="utf-8")
 
 
+def _calendar_unavailable() -> Dict[str, Any]:
+    return {
+        "status": "error",
+        "source": "Google Calendar (non connecté)",
+        "message": (
+            "Aucun accès Google Calendar autorisé sur ce serveur. Une adresse email seule "
+            "ne permet pas de lire ou modifier l'agenda de son propriétaire; celui-ci doit "
+            "autoriser l'accès Google ou partager son agenda."
+        ),
+    }
+
+
 def _get_calendar_service():
     """Tente d'initialiser le service officiel Google Calendar API OAuth2."""
     if not GOOGLE_LIBS_AVAILABLE:
@@ -98,8 +110,8 @@ def _get_calendar_service():
                 creds.refresh(Request())
             except Exception:
                 creds = None
-        elif secrets_path.exists():
-            # Nécessite un flux interactif local si token absent
+        elif secrets_path.exists() and settings.ENVIRONMENT != "production":
+            # Le flux interactif ne peut fonctionner que dans un environnement local.
             try:
                 flow = InstalledAppFlow.from_client_secrets_file(str(secrets_path), SCOPES)
                 creds = flow.run_local_server(port=0)
@@ -152,9 +164,15 @@ def list_events(max_results: int = 10, time_min: Optional[str] = None) -> Dict[s
                 "events": formatted
             }
         except Exception as e:
-            pass
+            return {
+                "status": "error",
+                "source": "Google Calendar API (Live)",
+                "message": f"Échec de lecture Google Calendar ({type(e).__name__}).",
+            }
 
     # Mode démonstration sécurisée (si non connecté aux serveurs Google)
+    if settings.ENVIRONMENT == "production":
+        return _calendar_unavailable()
     events = _load_mock_calendar()
     return {
         "status": "success",
@@ -195,10 +213,16 @@ def search_events(query: str, date: Optional[str] = None) -> Dict[str, Any]:
                 "description": it.get("description", "")
             } for it in items]
             return {"status": "success", "source": "Google Calendar API (Live)", "events": formatted}
-        except Exception:
-            pass
+        except Exception as e:
+            return {
+                "status": "error",
+                "source": "Google Calendar API (Live)",
+                "message": f"Échec de recherche Google Calendar ({type(e).__name__}).",
+            }
 
     # Recherche dans le calendrier de démo
+    if settings.ENVIRONMENT == "production":
+        return _calendar_unavailable()
     events = _load_mock_calendar()
     filtered = []
     q_lower = query.lower() if query else ""
@@ -249,9 +273,15 @@ def create_event(summary: str, start_time: str, end_time: Optional[str] = None, 
                 "link": created.get("htmlLink")
             }
         except Exception as e:
-            pass
+            return {
+                "status": "error",
+                "source": "Google Calendar API (Live)",
+                "message": f"Échec de création Google Calendar ({type(e).__name__}).",
+            }
 
     # Ajout dans le calendrier de démo
+    if settings.ENVIRONMENT == "production":
+        return _calendar_unavailable()
     events = _load_mock_calendar()
     new_event = {
         "id": f"evt_{int(datetime.utcnow().timestamp())}",
@@ -283,9 +313,11 @@ def delete_event(event_id: str) -> Dict[str, Any]:
             service.events().delete(calendarId="primary", eventId=event_id).execute()
             return {"status": "success", "message": f"Événement ID {event_id} supprimé du Google Calendar."}
         except Exception as e:
-            return {"status": "error", "message": f"Échec de la suppression sur Google Calendar : {str(e)}"}
+            return {"status": "error", "message": f"Échec de la suppression sur Google Calendar ({type(e).__name__})."}
 
     # Suppression dans le calendrier de test
+    if settings.ENVIRONMENT == "production":
+        return _calendar_unavailable()
     events = _load_mock_calendar()
     new_events = [e for e in events if e.get("id") != event_id]
     if len(new_events) < len(events):

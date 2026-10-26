@@ -53,7 +53,7 @@ x_finder/
 │   │   │   ├── web_search.py        # Tavily Search API + repli DuckDuckGo
 │   │   │   ├── weather.py           # WeatherAPI + repli Open-Meteo multi-villes
 │   │   │   ├── calendar_tool.py     # Google Calendar API (view, search, add, del)
-│   │   │   ├── email_tool.py        # Envoi SMTP avec confirmation obligatoire
+│   │   │   ├── email_tool.py        # Brevo HTTPS, envoi individuel et invitations .ics
 │   │   │   ├── notion_tool.py       # Notion API (search, read, create, append)
 │   │   │   ├── drive_tool.py        # Google Drive API (search, read text/docs)
 │   │   │   ├── osint_tools.py       # CTI lookup, chasse aux stages/CTF, recon profil
@@ -100,8 +100,8 @@ x_finder/
 4. `search_calendar_events` : Recherche d'événements par date ou mot-clé.
 5. `create_calendar_event` : Création et planification d'un nouvel événement.
 6. `delete_calendar_event` : Suppression d'un événement (avec confirmation préalable).
-7. `prepare_email_draft` : Rédige et présente un brouillon pour confirmation obligatoire.
-8. `send_email_confirmed` : Expédie l'email via SMTP après feu vert de l'utilisateur.
+7. `prepare_email_draft` : Prépare un brouillon individuel (et une pièce jointe `.ics` optionnelle) pour confirmation obligatoire.
+8. L'envoi Brevo est exécuté par le serveur uniquement après le feu vert explicite dans la carte de confirmation.
 9. `search_notion` : Recherche de pages et notes dans Notion.
 10. `read_notion_page` : Lecture intégrale du contenu d'une page Notion.
 11. `create_notion_page` : Création d'une nouvelle note dans Notion.
@@ -179,7 +179,9 @@ python run.py
 
 X-Finder utilise trois services : le backend **FastAPI** sur [Render](https://render.com/), le frontend **Vite** sur [Cloudflare Pages](https://pages.cloudflare.com/) et la base **PostgreSQL** sur [Neon](https://neon.com/). Le fichier `render.yaml` décrit la configuration du backend. Configurez `DATABASE_URL` avec l'URL Neon, `FRONTEND_ORIGIN` et `PUBLIC_BASE_URL` avec le domaine Cloudflare Pages. Sur Cloudflare Pages, définissez `BACKEND_URL` avec l'URL du service Render.
 
-L'envoi d'emails utilise **Brevo SMTP** : `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USE_TLS=true` et `SMTP_USER=bfe9be001@smtp-brevo.com`. Dans les variables d'environnement Render, définissez `SMTP_PASSWORD` comme secret avec votre clé SMTP Brevo et `SMTP_FROM_EMAIL` avec une adresse d'expédition vérifiée dans Brevo. Ne publiez jamais la clé dans le dépôt. Après configuration, redéployez le backend et vérifiez `integrations.smtp.configured` sur `/api/health`.
+L'envoi d'emails utilise en priorité **l'API HTTPS Brevo**, adaptée aux hébergeurs qui bloquent les connexions SMTP sortantes. Dans Render, ajoutez `BREVO_API_KEY` comme secret (clé API Brevo, différente de la clé SMTP) et renseignez `SMTP_FROM_EMAIL` avec une adresse d'expédition vérifiée dans Brevo. Chaque destinataire reçoit un message séparé, après confirmation explicite du lot. `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_HOST` et `SMTP_PORT` restent un mode de repli; Render peut bloquer les ports SMTP et provoquer un timeout. Ne publiez jamais de clé dans le dépôt. Après déploiement, vérifiez `integrations.smtp.mode` et `integrations.smtp.configured` sur `/api/health`.
+
+**Agenda et invitations :** pour envoyer un événement à un ou plusieurs destinataires sans accéder à leurs comptes Google, renseignez titre, dates avec fuseau horaire, lieu/lien et description; X-Finder joint un fichier `.ics` distinct à chaque email, que chaque destinataire peut ajouter manuellement à son agenda. Cela ne crée pas une invitation Google native avec RSVP et ne modifie aucun calendrier. L'intégration Google Calendar actuelle repose sur un fichier OAuth local et un flux interactif, inadaptés à Render; en production, une absence d'autorisation ou une erreur API est signalée au lieu de déclarer faussement qu'un événement a été créé.
 
 
 
