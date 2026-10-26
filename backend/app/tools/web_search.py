@@ -113,7 +113,7 @@ def _search_tavily(query: str, search_depth: str, max_results: int, include_news
             "include_answer": True,
             "topic": "news" if include_news else "general",
         }
-        with httpx.Client(timeout=20.0) as client:
+        with httpx.Client(timeout=8.0) as client:
             res = client.post("https://api.tavily.com/search", json=payload)
             if res.status_code != 200:
                 return None
@@ -197,7 +197,7 @@ def _search_duckduckgo(query: str, max_results: int) -> Optional[Dict[str, Any]]
         ("POST", "https://lite.duckduckgo.com/lite/", {"q": query}),
     ]
     try:
-        with httpx.Client(timeout=15.0, follow_redirects=True, headers=headers) as client:
+        with httpx.Client(timeout=5.0, follow_redirects=True, headers=headers) as client:
             for method, url, data in endpoints:
                 try:
                     res = client.request(method, url, data=data)
@@ -222,7 +222,7 @@ def _search_duckduckgo(query: str, max_results: int) -> Optional[Dict[str, Any]]
 def _search_ddg_instant(query: str, max_results: int) -> Optional[Dict[str, Any]]:
     """API Instant Answer DuckDuckGo (JSON) — repli léger sans scraping HTML."""
     try:
-        with httpx.Client(timeout=12.0, follow_redirects=True) as client:
+        with httpx.Client(timeout=5.0, follow_redirects=True) as client:
             res = client.get(
                 "https://api.duckduckgo.com/",
                 params={"q": query, "format": "json", "no_html": 1, "skip_disambig": 1},
@@ -276,7 +276,7 @@ def _search_wikipedia(query: str, max_results: int) -> Optional[Dict[str, Any]]:
     }
     raw: List[Dict[str, Any]] = []
     try:
-        with httpx.Client(timeout=15.0, follow_redirects=True, headers=headers) as client:
+        with httpx.Client(timeout=5.0, follow_redirects=True, headers=headers) as client:
             for lang in ("fr", "en"):
                 # 1) Recherche plein texte avec snippets
                 res = client.get(
