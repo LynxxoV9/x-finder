@@ -6,6 +6,8 @@ import json
 import uuid
 from urllib.parse import parse_qs, urlparse
 from sqlalchemy import Text
+from sqlalchemy.exc import OperationalError
+from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -15,6 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from app.main import app
 from app.database.db import SessionLocal
 from app.database.models import Message, ToolExecution
+from app.auth import SESSION_COOKIE, get_current_user
 
 @pytest.fixture
 def client():
@@ -34,6 +37,52 @@ def test_health_check(client):
     data = response.json()
     assert data["status"] == "healthy"
     assert data["agent_name"] == "X-Finder"
+
+
+def test_current_user_retries_after_database_disconnect():
+    class FakeQuery:
+        calls = 0
+
+        def options(self, *args):
+            return self
+
+        def filter(self, *args):
+            return self
+
+        def first(self):
+            self.calls += 1
+            if self.calls == 1:
+                raise OperationalError("SELECT", {}, Exception("connection closed"))
+            return type("Session", (), {"user": object()})()
+
+    class FakeDatabase:
+        def __init__(self):
+            self.query_result = FakeQuery()
+            self.rollbacks = 0
+
+        def query(self, model):
+            return self.query_result
+
+        def rollback(self):
+            self.rollbacks += 1
+
+    request = Request({
+        "type": "http",
+        "headers": [(b"cookie", f"{SESSION_COOKIE}=test-token".encode())],
+        "method": "GET",
+        "path": "/",
+        "query_string": b"",
+        "server": ("test", 80),
+        "client": ("test", 80),
+        "scheme": "http",
+    })
+    db = FakeDatabase()
+
+    get_current_user(request, db)
+
+    assert db.query_result.calls == 2
+    assert db.rollbacks == 1
+
 
 def test_list_tools(client):
     response = client.get("/api/tools")

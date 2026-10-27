@@ -10,8 +10,8 @@ import httpx
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pwdlib import PasswordHash
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
 from app.database.db import get_db
@@ -68,14 +68,25 @@ def get_current_user(
     token = request.cookies.get(SESSION_COOKIE)
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Connexion requise.")
-    session = (
+    session_query = (
         db.query(UserSession)
+        .options(joinedload(UserSession.user))
         .filter(
             UserSession.token_hash == _hash_token(token),
             UserSession.expires_at > datetime.utcnow(),
         )
-        .first()
     )
+    for attempt in range(2):
+        try:
+            session = session_query.first()
+            break
+        except OperationalError as exc:
+            db.rollback()
+            if attempt == 1:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="La base de données est temporairement indisponible. Réessayez.",
+                ) from exc
     if session is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expirée.")
     return session.user
