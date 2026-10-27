@@ -19,7 +19,7 @@ L'écran principal regroupe la conversation interactive avec l'agent, le sélect
 ### Investigation OSINT et résultats
 Recherche approfondie et croisement de renseignements en sources ouvertes sur une cible avec synthèse structurée.
 
-![Investigation nominative OSINT](Images/exemple_d_investigation_sur_un_nom.png)
+![Investigation nominative OSINT]()
 
 ### Cyber Threat Intelligence (CTI)
 Veille de cybermenaces en temps réel : consultation de vulnérabilités (CVE), analyse technique et extraction d'indicateurs de compromission.
