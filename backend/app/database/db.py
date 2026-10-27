@@ -22,6 +22,7 @@ if database_url.startswith("postgresql+psycopg://"):
 engine = create_engine(
     database_url,
     connect_args=connect_args,
+    pool_pre_ping=True,
 )
 
 # Sessionmaker pour la gestion des transactions
