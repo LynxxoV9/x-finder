@@ -17,12 +17,31 @@ if os.getenv("VERCEL") and database_url.startswith("sqlite:"):
 
 connect_args = {"check_same_thread": False} if database_url.startswith("sqlite:") else {}
 if database_url.startswith("postgresql+psycopg://"):
-    connect_args["prepare_threshold"] = None
+    connect_args.update({
+        "prepare_threshold": None,  # Obligatoire avec PgBouncer Neon (-pooler)
+        "keepalives": 1,             # Active le TCP keepalive
+        "keepalives_idle": 30,       # Premier ping après 30s d'inactivité
+        "keepalives_interval": 10,   # Ping toutes les 10s
+        "keepalives_count": 5,       # Déclare la connexion morte après 5 échecs
+        "connect_timeout": 15,       # Laisse le temps à Neon de se réveiller
+    })
+
+engine_kwargs = {
+    "connect_args": connect_args,
+    "pool_pre_ping": True,
+    "pool_recycle": 120,        # Recycle les connexions toutes les 2 min (avant la mise en veille Neon de 5 min)
+}
+
+if database_url.startswith("postgresql+psycopg://"):
+    engine_kwargs.update({
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_timeout": 30,
+    })
 
 engine = create_engine(
     database_url,
-    connect_args=connect_args,
-    pool_pre_ping=True,
+    **engine_kwargs,
 )
 
 # Sessionmaker pour la gestion des transactions

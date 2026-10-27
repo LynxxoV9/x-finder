@@ -105,8 +105,16 @@ async def run_agent_turn(
     }
 
     loop_count = 0
-    async with httpx.AsyncClient(timeout=90.0) as client:
+    turn_start_time = time.monotonic()
+    MAX_TURN_SECONDS = 80.0
+
+    async with httpx.AsyncClient(timeout=35.0) as client:
         while loop_count < MAX_AGENT_LOOPS:
+            if time.monotonic() - turn_start_time > MAX_TURN_SECONDS:
+                final_text_content = "Le temps d'exécution maximum de l'agent a été atteint (80s). Veuillez relancer une requête plus ciblée."
+                final_status = "incomplete"
+                break
+
             loop_count += 1
 
             payload = {
@@ -124,7 +132,7 @@ async def run_agent_turn(
                     json=payload
                 )
             except httpx.TimeoutException:
-                final_text_content = "Le service LLM n'a pas répondu dans le délai imparti. Réessayez dans quelques instants."
+                final_text_content = "Le service IA n'a pas répondu à temps (35s). Réessayez ou choisissez un modèle plus rapide."
                 final_status = "error"
                 break
             except httpx.HTTPError as exc:
@@ -142,8 +150,16 @@ async def run_agent_turn(
                             headers=headers,
                             json=payload
                         )
+                    except httpx.TimeoutException:
+                        final_text_content = "Le service IA n'a pas répondu à temps (35s). Réessayez ou choisissez un modèle plus rapide."
+                        final_status = "error"
+                        break
                     except Exception:
                         pass
+                if res.status_code == 402:
+                    final_text_content = "Solde insuffisant sur le compte RodiumAI (Erreur 402). Veuillez recharger vos crédits."
+                    final_status = "error"
+                    break
                 if res.status_code != 200:
                     final_text_content = f"Erreur du service LLM ({res.status_code}) : {res.text[:200]}"
                     final_status = "error"

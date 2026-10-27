@@ -1,7 +1,6 @@
-# 🛡️ X-Finder : Agent IA Personnel Autonome avec Tool Calling (RodiumAi Bootcamp - Module 6)
+# X-Finder : Agent IA Personnel Autonome avec Tool Calling (RodiumAi Bootcamp - Module 6)
 
-> 🚀 **Application déployée : [Ouvrir X-Finder](https://x-finder-api.onrender.com/)**
-
+> **Application déployée : [Ouvrir X-Finder](https://x-finder-api.onrender.com/)**  
 > **Assignment de cours** : Développer un agent IA personnel capable d'utiliser des outils externes pour effectuer des tâches concrètes à la demande de l'utilisateur.  
 > **Spécialité X-Finder** : OSINT (Open Source Intelligence), Cyber Threat Intelligence (CTI), Détection d'Opportunités (Stages, Emplois, Hackathons, CTF) & Recherche Multimodale (Texte + Image).  
 > **Auteur** : Kokou Olivier FIABI (`lynxxoven`)  
@@ -12,16 +11,29 @@
 
 ## Aperçu de l'application
 
+### Interface principale
+L'écran principal regroupe la conversation interactive avec l'agent, le sélecteur de modèle LLM et la liste dynamique des outils disponibles.
+
 ![Interface principale de X-Finder](Images/x-finder_interface.png)
 
-### Interface principale
-L'écran principal regroupe la conversation avec l'agent, la sélection du modèle et les outils disponibles.
+### Investigation OSINT et résultats
+Recherche approfondie et croisement de renseignements en sources ouvertes sur une cible avec synthèse structurée.
 
-### Investigation et résultats
-<!-- Ajouter ici une capture d'une investigation et de ses résultats. -->
+![Investigation nominative OSINT](Images/exemple_d_investigation_sur_un_nom.png)
 
-### Graphe relationnel
-<!-- Ajouter ici une capture d'un graphe généré par l'agent. -->
+### Cyber Threat Intelligence (CTI)
+Veille de cybermenaces en temps réel : consultation de vulnérabilités (CVE), analyse technique et extraction d'indicateurs de compromission.
+
+![Exemple de recherche CTI](Images/CTI-exemple.png)
+
+### Sécurité Human-in-the-Loop : Préparation et confirmation d'email
+Pour toutes les actions à fort impact, l'agent génère d'abord un brouillon sécurisé puis soumet une carte de confirmation interactive avant tout envoi effectif.
+
+#### 1. Préparation du brouillon par l'agent
+![Brouillon d'envoi d'email](Images/brouillon_envoie_de_mail.png)
+
+#### 2. Carte de confirmation interactive utilisateur
+![Confirmation d'envoi d'email](Images/Confirmation_envoie-de-mail.png)
 
 ---
 
@@ -32,7 +44,7 @@ Contrairement aux chatbots conversationnels traditionnels qui se limitent à gé
 1. **Compréhension & Planification** : L'agent analyse l'intention utilisateur en langage naturel.
 2. **Sélection dynamique des outils** : Il choisit en temps réel le ou les outils pertinents dans son registre (OpenAI function calling standard).
 3. **Exécution & Traçabilité** : Les outils sont exécutés de manière sécurisée et chaque appel est journalisé (arguments, durée en millisecondes, statut, résultat).
-4. **Enchaînement Multi-Outils (Multi-tool Chaining)** : L'agent peut combiner 3, 4 voire 5 outils séquentiellement pour résoudre un défi complexe (ex: calendrier ➔ Notion ➔ recherche Web ➔ préparation d'email).
+4. **Enchaînement Multi-Outils (Multi-tool Chaining)** : L'agent peut combiner 3, 4 voire 5 outils séquentiellement pour résoudre un défi complexe (ex: calendrier -> Notion -> recherche Web -> préparation d'email).
 5. **Human-in-the-Loop (Sécurité)** : Les actions à fort impact (envoi réel d'email, suppression d'événement) requièrent obligatoirement une confirmation explicite via une carte interactive dans l'interface.
 6. **Reconnaissance Multimodale** : Capacité de téléverser une image pour extraction OCR, analyse de métadonnées EXIF et renseignement visuel.
 7. **RAG Local Intégré** : Indexation et recherche sémantique TF-IDF dans la base de connaissances documentaire locale (`data/knowledge/`).
@@ -60,12 +72,12 @@ x_finder/
 │   │   │   ├── vision_recon.py      # Analyse visuelle multimodale (Gemini Vision)
 │   │   │   └── rag_engine.py        # Moteur RAG local (TF-IDF sur playbooks)
 │   │   ├── database/
-│   │   │   ├── db.py                # Configuration SQLAlchemy SQLite
+│   │   │   ├── db.py                # Configuration SQLAlchemy (SQLite / Neon PostgreSQL)
 │   │   │   └── models.py            # Modèles Conversation, Message, ToolExecution, PendingConfirmation
 │   │   ├── config.py                # Gestion des variables d'environnement (Pydantic)
 │   │   └── main.py                  # API FastAPI et distribution des fichiers statiques
 │   ├── tests/
-│   │   ├── test_tools.py            # Tests unitaires des 9 outils
+│   │   ├── test_tools.py            # Tests unitaires des outils
 │   │   └── test_api.py              # Tests d'intégration des endpoints FastAPI
 │   ├── requirements.txt             # Dépendances Python
 │   └── .env.example                 # Modèle de configuration des secrets
@@ -134,7 +146,10 @@ Copiez le modèle `.env.example` en `.env` :
 cp .env.example .env
 ```
 Renseignez votre clé `RODIUMAI_API_KEY` (fournie par RodiumAI ou l'enseignant).  
+
 > **Note pour l'évaluation** : Grâce aux **replis automatiques intelligents (Zero-Key Fallbacks)** intégrés, l'application fonctionne immédiatement pour les tests même si vous n'avez pas encore configuré vos clés Tavily, Google Cloud ou Notion !
+
+---
 
 ### Comptes et connexion
 
@@ -142,8 +157,8 @@ L'API et l'historique des conversations nécessitent une session. Les comptes em
 
 Pour activer les boutons OAuth, configurez les identifiants Google et/ou GitHub. Déclarez exactement ces URL de callback chez les fournisseurs, en remplaçant le domaine :
 
-- Google : `https://<domaine>/api/auth/google/callback`
-- GitHub : `https://<domaine>/api/auth/github/callback`
+- **Google** : `https://<domaine>/api/auth/google/callback`
+- **GitHub** : `https://<domaine>/api/auth/github/callback`
 
 Configurez `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `PUBLIC_BASE_URL` (origine publique, sans slash final), `FRONTEND_ORIGIN`, `ENVIRONMENT=production` et `SECRET_KEY` (au moins 32 caractères aléatoires). `SESSION_TTL_HOURS` définit la durée maximale de la session. En local, les valeurs OAuth peuvent rester vides et les boutons correspondants sont masqués.
 
@@ -175,14 +190,24 @@ run.bat
 python run.py
 ```
 
-### Déploiement
+---
 
-X-Finder utilise trois services : le backend **FastAPI** sur [Render](https://render.com/), le frontend **Vite** sur [Cloudflare Pages](https://pages.cloudflare.com/) et la base **PostgreSQL** sur [Neon](https://neon.com/). Le fichier `render.yaml` décrit la configuration du backend. Configurez `DATABASE_URL` avec l'URL Neon, `FRONTEND_ORIGIN` et `PUBLIC_BASE_URL` avec le domaine Cloudflare Pages. Sur Cloudflare Pages, définissez `BACKEND_URL` avec l'URL du service Render.
+## Déploiement en Production
 
+### Infrastructure Cloud (3-Tiers)
+X-Finder utilise trois services :
+- **Backend API** : FastAPI hébergé sur [Render](https://render.com/).
+- **Frontend Web** : Application Vite/React sur [Cloudflare Pages](https://pages.cloudflare.com/).
+- **Base de données** : PostgreSQL managé Serverless sur [Neon](https://neon.com/).
+
+Le fichier `render.yaml` décrit la configuration du backend. Configurez `DATABASE_URL` avec l'URL Neon (de préférence Pooled avec `-pooler.neon.tech`), `FRONTEND_ORIGIN` et `PUBLIC_BASE_URL` avec le domaine Cloudflare Pages. Sur Cloudflare Pages, définissez `BACKEND_URL` avec l'URL du service Render.
+
+### Service d'Emailing (API Brevo HTTPS)
 L'envoi d'emails utilise en priorité **l'API HTTPS Brevo**, adaptée aux hébergeurs qui bloquent les connexions SMTP sortantes. Dans Render, ajoutez `BREVO_API_KEY` comme secret (clé API Brevo, différente de la clé SMTP) et renseignez `SMTP_FROM_EMAIL` avec une adresse d'expédition vérifiée dans Brevo. Chaque destinataire reçoit un message séparé, après confirmation explicite du lot. `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_HOST` et `SMTP_PORT` restent un mode de repli; Render peut bloquer les ports SMTP et provoquer un timeout. Ne publiez jamais de clé dans le dépôt. Après déploiement, vérifiez `integrations.smtp.mode` et `integrations.smtp.configured` sur `/api/health`.
 
-**Agenda et invitations :** pour envoyer un événement à un ou plusieurs destinataires sans accéder à leurs comptes Google, renseignez titre, dates avec fuseau horaire, lieu/lien et description; X-Finder joint un fichier `.ics` distinct à chaque email, que chaque destinataire peut ajouter manuellement à son agenda. Cela ne crée pas une invitation Google native avec RSVP et ne modifie aucun calendrier. L'intégration Google Calendar actuelle repose sur un fichier OAuth local et un flux interactif, inadaptés à Render; en production, une absence d'autorisation ou une erreur API est signalée au lieu de déclarer faussement qu'un événement a été créé.
+### Agenda et invitations (.ics)
+Pour envoyer un événement à un ou plusieurs destinataires sans accéder à leurs comptes Google, renseignez titre, dates avec fuseau horaire, lieu/lien et description; X-Finder joint un fichier `.ics` distinct à chaque email, que chaque destinataire peut ajouter manuellement à son agenda. Cela ne crée pas une invitation Google native avec RSVP et ne modifie aucun calendrier. L'intégration Google Calendar actuelle repose sur un fichier OAuth local et un flux interactif, inadaptés à Render; en production, une absence d'autorisation ou une erreur API est signalée au lieu de déclarer faussement qu'un événement a été créé.
 
-
+---
 
 *Développé avec passion par lynxxoven pour l'intelligence artificielle agentique et la cybersécurité.*

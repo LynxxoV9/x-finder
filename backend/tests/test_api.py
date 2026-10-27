@@ -245,6 +245,70 @@ def test_agent_persists_llm_provider_errors(client, monkeypatch):
     assert client.delete(f"/api/conversations/{conv_id}").status_code == 200
 
 
+def test_agent_handles_llm_payment_required_402(client, monkeypatch):
+    from app.agent import core
+
+    monkeypatch.setattr(core.settings, "RODIUMAI_API_KEY", "test-llm-key")
+    conv_id = client.post("/api/conversations", json={}).json()["conversation"]["id"]
+
+    class FakeResponse:
+        status_code = 402
+        text = "Payment Required"
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def post(self, *args, **kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr(core.httpx, "AsyncClient", FakeClient)
+
+    with SessionLocal() as db:
+        result = asyncio.run(core.run_agent_turn(conv_id, "Bonjour", db))
+        assert result["status"] == "error"
+        assert "402" in result["response"]
+        assert "Solde insuffisant" in result["response"]
+
+    assert client.delete(f"/api/conversations/{conv_id}").status_code == 200
+
+
+def test_agent_handles_llm_timeout(client, monkeypatch):
+    import httpx
+    from app.agent import core
+
+    monkeypatch.setattr(core.settings, "RODIUMAI_API_KEY", "test-llm-key")
+    conv_id = client.post("/api/conversations", json={}).json()["conversation"]["id"]
+
+    class FakeTimeoutClient:
+        def __init__(self, **kwargs):
+            assert kwargs.get("timeout") == 35.0
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def post(self, *args, **kwargs):
+            raise httpx.TimeoutException("Request timed out")
+
+    monkeypatch.setattr(core.httpx, "AsyncClient", FakeTimeoutClient)
+
+    with SessionLocal() as db:
+        result = asyncio.run(core.run_agent_turn(conv_id, "Bonjour", db))
+        assert result["status"] == "error"
+        assert "35s" in result["response"]
+
+    assert client.delete(f"/api/conversations/{conv_id}").status_code == 200
+
+
 def test_agent_reports_missing_llm_key(client, monkeypatch):
     from app.agent import core
 
